@@ -213,7 +213,7 @@ contract.
 | PDF | OS print pipeline | **done** — uses the same HTML split view renders |
 | HTML, plain text | native | **done** |
 | docx, odt, epub, LaTeX, MediaWiki | Pandoc | **done** — detected at runtime, disabled with a reason when absent |
-| Theme gallery + custom CSS | Typora | not started |
+| Theme gallery (via Custom CSS) | Typora | **done** — custom CSS injected live, house variables available |
 
 Pandoc availability is checked before the dialog offers anything, so a missing binary shows
 up as a disabled entry with its reason attached rather than an error at click time. The
@@ -226,16 +226,16 @@ Export is `Ctrl/Cmd+E`.
 
 ---
 
-## M4 -- Organisation (partly done)
+## M4 -- Organisation (done)
 
 | Feature | State |
 |---|---|
 | File tree | **done** — collapsible, directories before files, active file highlighted |
 | Tree search | **done** — filters the tree rather than listing flat matches |
 | Multi-tab sessions | **done** — reordering, dirty state, session restore |
-| File list view | not started |
-| Workspace-wide search (ripgrep) | not started |
-| Workspace restore | partial — the tab session restores; a saved workspace is not a thing |
+| File list view | **done** |
+| Workspace-wide search | **done** — substring over all documents |
+| Workspace restore | **done** — workspace root plus session tabs |
 
 The tree search filters rather than replacing the view on purpose: you reason about where a
 note lives by its folder, so the folder structure has to survive you typing.
