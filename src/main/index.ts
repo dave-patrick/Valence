@@ -238,6 +238,12 @@ function buildMenu(): void {
         { id: 'file.open', label: 'Open…', accelerator: 'CmdOrCtrl+O' },
         { id: 'file.save', label: 'Save', accelerator: 'CmdOrCtrl+S' },
         { type: 'separator' },
+        {
+          id: 'file.export',
+          label: 'Export…',
+          accelerator: 'CmdOrCtrl+E',
+        },
+        { type: 'separator' },
         { role: 'close' },
       ],
     },

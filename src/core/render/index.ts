@@ -104,8 +104,8 @@ export async function renderToHtml(source: string, options: RenderOptions = {}):
     typographer: false, // never in export â€” it silently rewrites the user's bytes
   })
     .use((m) => {
-      m.block.ruler.before('fence', 'basalt_math_block', MATH_BLOCK)
-      m.inline.ruler.push('basalt_math_inline', MATH_INLINE)
+      m.block.ruler.before('fence', 'valence_math_block', MATH_BLOCK)
+      m.inline.ruler.push('valence_math_inline', MATH_INLINE)
     })
     .use((m) => {
       m.renderer.rules.math_inline = (tokens, idx) =>

@@ -17,15 +17,19 @@ What is built, what is deliberately deferred, and why. Every item traces to a fi
 | **M1.1 Hidden syntax markers** | `test/markers.test.ts`, 8 tests; verified live in a browser |
 | **M1.2 Math and diagram atoms** | `test/nodes.test.ts`, 11 tests; KaTeX verified live |
 | **M1.3 Table editing** | `test/table.test.ts` + `test/tableToolbar.test.ts`, 19 tests |
+| **M1.4 Smart paste and clipboard images** | `test/paste.test.ts`, 19 tests |
+| **M1.5 Focus and typewriter modes** | `src/core/editor/viewModes.ts`; both were dead settings toggles before this |
+| **M3 Export** | `test/export.test.ts`, 28 tests; PDF via print, Pandoc for the rest |
+| **M4 Workspace file tree** | `test/tree.test.ts`, 27 tests |
 | Editor shell -- hybrid / source / split over one document | `test/app.smoke.test.ts` drives real view switches |
 | Read + export pipeline (Shiki, KaTeX, Mermaid) | renders in split view |
-| Design system: tokens, typography, light/dark, strata gutter | `src/renderer/src/styles/` |
+| Design system: house tokens shared with Quantos | `src/renderer/src/styles/tokens.css` |
 | Prose-only word count + reading time | `src/features/stats/` |
 | Platform abstraction, Electron impl, browser fallback | renderer never imports `electron` |
 | Electron main process, preload bridge, menu, PDF export | `src/main/`, `src/preload/` |
 | electron-builder packaging config for mac/win/linux | `package.json` -> `build` |
 
-95 tests passing, typecheck clean, production build succeeds.
+236 tests passing, typecheck clean, production build succeeds.
 
 ### M1.1 -- what it does
 

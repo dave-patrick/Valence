@@ -55,8 +55,13 @@ afterAll(() => root?.unmount())
  * Polling for the editor's `<h1>` is not enough — the editor is constructed with the welcome
  * content immediately, long before the session resolves, so that matches too early. The
  * outline is derived from session state, so it is the honest readiness signal.
+ *
+ * The bound is deliberately generous. It is a backstop against a hang, not an assertion
+ * about boot time: this file mounts the entire app inside jsdom while the other suites run
+ * in parallel, and a tight budget here turns a loaded machine into a red build that says
+ * nothing about the code.
  */
-async function ready(timeoutMs = 5000): Promise<void> {
+async function ready(timeoutMs = 30000): Promise<void> {
   const start = Date.now()
   while (Date.now() - start < timeoutMs) {
     await new Promise((r) => setTimeout(r, 25))
@@ -201,5 +206,41 @@ describe('chrome', () => {
     click(container.querySelector('[aria-label="Search"]'))
     await tick()
     expect(container.querySelector('[aria-label="Find in document"]')).toBeNull()
+  })
+})
+
+describe('export dialog', () => {
+  /** Ctrl+E is handled on the document, so it needs a real KeyboardEvent. */
+  async function pressCtrlE(): Promise<void> {
+    document.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'e', ctrlKey: true, bubbles: true, cancelable: true }),
+    )
+    await tick()
+  }
+
+  it('opens on Ctrl+E and lists the formats the platform offers', async () => {
+    await pressCtrlE()
+    const dialog = container.querySelector('[role="dialog"][aria-label="Export"]')
+    expect(dialog).toBeTruthy()
+
+    // The web platform offers HTML and PDF only -- it must not advertise Pandoc formats.
+    const labels = [...dialog!.querySelectorAll('button')].map((b) => b.textContent ?? '')
+    expect(labels.some((l) => l.includes('Web Page'))).toBe(true)
+    expect(labels.some((l) => l.includes('PDF'))).toBe(true)
+    expect(labels.some((l) => l.includes('Word'))).toBe(false)
+  })
+
+  it('explains why Pandoc formats are unavailable rather than failing on click', async () => {
+    await pressCtrlE()
+    const dialog = container.querySelector('[role="dialog"][aria-label="Export"]')!
+    // hasPandoc() is false in the browser fallback, so the dialog must say so outright.
+    expect(dialog.textContent).toMatch(/Pandoc is not installed/i)
+  })
+
+  it('closes without exporting when dismissed', async () => {
+    await pressCtrlE()
+    click(container.querySelector('[aria-label="Close export dialog"]'))
+    await tick()
+    expect(container.querySelector('[role="dialog"][aria-label="Export"]')).toBeNull()
   })
 })

@@ -17,6 +17,7 @@ import { blocksToHtml, htmlToBlocks } from '@core/htmlBridge'
 import { renderToHtml } from '@core/render'
 import { computeStats } from '@features/stats/stats'
 import { outlineOf } from '@features/outline/outline'
+import { ExportDialog } from '@features/export/ExportDialog'
 import { loadSettings, rememberFolder, resolveTheme, saveSession, saveSettings } from '@features/settings/store'
 import type { Settings } from '@core/settings'
 import {
@@ -53,11 +54,28 @@ export function App() {
   const [panel, setPanel] = useState<PanelId>('outline')
   const [sidebarWidth, setSidebarWidth] = useState(268)
   const [readHtml, setReadHtml] = useState('')
+  const [exportOpen, setExportOpen] = useState(false)
   const [activeHeading, setActiveHeading] = useState('')
 
   const doc = activeDoc(session)
   const source = doc?.source ?? ''
   const headings = useMemo(() => outlineOf(source), [source])
+
+  /**
+   * Transient feedback for actions with no other visible result -- a save, an export, a
+   * failure. Errors and confirmations share one surface on purpose: a message that changes
+   * shape or position depending on severity is two things to learn instead of one.
+   */
+  const [notice, setNotice] = useState<{ text: string; tone: 'info' | 'error' } | null>(null)
+  const noticeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+
+  const notify = useCallback((text: string, tone: 'info' | 'error' = 'info') => {
+    clearTimeout(noticeTimer.current)
+    setNotice({ text, tone })
+    noticeTimer.current = setTimeout(() => setNotice(null), tone === 'error' ? 6000 : 2600)
+  }, [])
+
+  useEffect(() => () => clearTimeout(noticeTimer.current), [])
   const stats = useMemo(() => computeStats(source), [source])
 
   const theme = settings ? resolveTheme(settings.theme) : 'light'
@@ -229,7 +247,10 @@ export function App() {
   }, [editor, focusOn])
 
   useEffect(() => {
-    if (view !== 'split') return
+    // Split view shows the render, and the export dialog needs it too -- PDF goes through
+    // the print pipeline, so it must be the same HTML the reader would have seen, not a
+    // second rendering that can drift from it.
+    if (view !== 'split' && !exportOpen) return
     let cancelled = false
     void renderToHtml(source, { mode: theme }).then((r) => {
       if (!cancelled) setReadHtml(r.html)
@@ -237,7 +258,7 @@ export function App() {
     return () => {
       cancelled = true
     }
-  }, [view, source, theme])
+  }, [view, exportOpen, source, theme])
 
   /* ── File operations ───────────────────────────────────────── */
 
@@ -320,6 +341,7 @@ export function App() {
       else if (id === 'file.save') void save()
       else if (id === 'file.saveAll') void saveAll()
       else if (id === 'file.settings') setSettingsOpen(true)
+      else if (id === 'file.export') setExportOpen(true)
       else if (id === 'view.toggle') setView((v) => (v === 'split' ? 'hybrid' : 'split'))
       else if (id === 'view.cycle')
         setView((v) => (v === 'hybrid' ? 'source' : v === 'source' ? 'split' : 'hybrid'))
@@ -346,6 +368,11 @@ export function App() {
       } else if (mod && e.key === ',') {
         e.preventDefault()
         setSettingsOpen(true)
+      } else if (mod && e.key === 'e') {
+        // Ctrl/Cmd+E. Not a browser or Electron default in a document editor, and export is
+        // frequent enough that it should not require reaching for the menu.
+        e.preventDefault()
+        setExportOpen(true)
       } else if (mod && e.altKey && e.key === 'ArrowRight') {
         e.preventDefault()
         moveTab(1)
@@ -519,6 +546,35 @@ export function App() {
           onSelect={(id) => setSession((s) => setActiveDoc(s, id))}
           onClose={(id) => void closeTab(id)}
         />
+      )}
+
+      {exportOpen && (
+        <ExportDialog
+          markdown={source}
+          html={readHtml}
+          sourcePath={doc?.path ?? null}
+          title={headings[0]?.text ?? null}
+          onClose={() => setExportOpen(false)}
+          onNotice={(m) => notify(m)}
+          onError={(m) => notify(m, 'error')}
+        />
+      )}
+
+      {notice && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="pointer-events-none fixed bottom-[calc(var(--statusbar-h)+14px)] left-1/2 z-[60] max-w-[min(520px,90vw)] -translate-x-1/2 rounded-[var(--radius)] px-3.5 py-2 text-[12.5px]"
+          style={{
+            background: 'var(--bg-raised)',
+            border: `1px solid ${notice.tone === 'error' ? 'var(--danger)' : 'var(--line)'}`,
+            color: notice.tone === 'error' ? 'var(--danger)' : 'var(--text)',
+            boxShadow: 'var(--shadow)',
+            animation: 'none',
+          }}
+        >
+          {notice.text}
+        </div>
       )}
 
       <SettingsPanel
