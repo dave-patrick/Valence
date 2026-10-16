@@ -20,6 +20,8 @@ import { outlineOf } from '@features/outline/outline'
 import { buildBacklinks, resolveWikiLink } from '@core/wiki'
 import { useWorkspace } from '@features/workspace'
 import { ExportDialog } from '@features/export/ExportDialog'
+import { HistoryPanel } from '@features/history/HistoryPanel'
+import { saveSnapshot } from '@features/history/history'
 import { Palette } from '@features/commands/Palette'
 import { COMMANDS } from '@features/commands/commands'
 import { SlashMenu } from '@features/slash/SlashMenu'
@@ -63,6 +65,7 @@ export function App() {
   const [readHtml, setReadHtml] = useState('')
   const [readError, setReadError] = useState<string | null>(null)
   const [exportOpen, setExportOpen] = useState(false)
+  const [historyOpen, setHistoryOpen] = useState(false)
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [slashMenu, setSlashMenu] = useState<{
     items: ReturnType<typeof searchSlashItems>
@@ -72,6 +75,8 @@ export function App() {
 
   // Placeholder - filled below after editor creation.
   const [activeHeading, setActiveHeading] = useState('')
+
+// heading-scroll hook moved below, after editor is defined.
 
   const doc = activeDoc(session)
   const source = doc?.source ?? ''
@@ -100,7 +105,7 @@ export function App() {
   }, [wikiFiles, wikiRead, doc?.path])
 
   const openWikiLink = useCallback(
-    (target: string) => {
+    (target: string, heading?: string) => {
       // Work out which file this refers to before touching the session. A missing target
       // becomes a new note in the open file's folder rather than being silently dropped —
       // that is the affordance that stops linking from being a ceremony.
@@ -127,24 +132,18 @@ export function App() {
       }
 
       void (async () => {
-        // Missing target: create the note first, so the click always lands somewhere.
         if (resolution.kind === 'missing') {
-          try {
-            await platform.fs.write(path, `# ${target}\n\n`)
-          } catch {
-            return
-          }
+          try { await platform.fs.write(path, `# ${target}\n\n`) } catch { return }
         }
         try {
           const text = await platform.fs.read(path)
+          wantedHeading.current = heading ?? null
           setSession((s) => {
             const existing = s.documents.find((d) => d.path === path)
             if (existing) return setActiveDoc(s, existing.id)
             return openDoc(s, fromPath(path, text))
           })
-        } catch {
-          /* leave session alone */
-        }
+        } catch { /* leave session alone */ }
       })()
     },
     [session, wikiFiles, platform],
@@ -153,7 +152,8 @@ export function App() {
   // Keep a stable ref so the ProseMirror handleClick set up at editor creation always
   // invokes the current version without recreating the editor.
   const followWikiPathRef = useRef<((target: string, heading?: string) => void) | null>(null)
-  followWikiPathRef.current = (target, _heading) => openWikiLink(target)
+  const wantedHeading = useRef<string | null>(null)
+  followWikiPathRef.current = (target, heading) => openWikiLink(target, heading)
 
   /**
    * Transient feedback for actions with no other visible result -- a save, an export, a
@@ -357,6 +357,36 @@ export function App() {
     requestAnimationFrame(() => requestAnimationFrame(applyScroll))
   }, [editor, doc])
 
+  // Scroll to a requested heading after a wiki link (with `#Heading`) lands in the editor.
+  useEffect(() => {
+    const wanted = wantedHeading.current
+    if (!wanted) return
+    if (!editor) return
+    let cancelled = false
+    const scrollToIt = () => {
+      if (cancelled) return
+      // Walk headings by plain text content.
+      const headings = [...editor.view.dom.querySelectorAll('h1,h2,h3,h4,h5,h6')]
+      const match = headings.find((h) => h.textContent?.trim().toLowerCase() === wanted.toLowerCase())
+      if (match) {
+        match.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        wantedHeading.current = null
+      }
+    }
+    // Try a few frames in case the editor hasn't mounted the doc yet.
+    let tries = 0
+    const tick = () => {
+      if (cancelled || !wantedHeading.current) return
+      scrollToIt()
+      if (wantedHeading.current) {
+        if (++tries < 20) setTimeout(tick, 120)
+      }
+    }
+    const id = setTimeout(tick, 120)
+    return () => { cancelled = true; clearTimeout(id) }
+  }, [editor, doc?.id])
+
+
   useEffect(() => {
     if (!editor || !editor.isEditable) return
     editor.setEditable(view !== 'split')
@@ -463,6 +493,9 @@ export function App() {
       if (!target) return
     }
     await platform.fs.write(target, current.source)
+    // Snapshots live beside the note, so they travel with it. Fire and forget: a history
+    // capture must never turn a successful save into a failure.
+    void saveSnapshot(target, current.source).catch(() => {})
     setSession((s) => markSaved(s, current.id, target!))
     platform.window.setDirty(false)
     platform.window.setTitle(`${basenameOf(target)} — Valence`)
@@ -598,6 +631,8 @@ export function App() {
           return void newDoc()
         case 'file.export':
           return setExportOpen(true)
+        case 'view.history':
+          return setHistoryOpen(true)
         case 'file.close': {
           const current = activeDoc(session)
           if (current) return void closeTab(current.id)
@@ -708,6 +743,7 @@ export function App() {
       if (mod && e.key === '/') return runCommand('app.theme')
       if (mod && e.key === ',') return runCommand('app.settings')
       if (mod && e.key === 'e') return runCommand('file.export')
+      if (mod && e.key === 'h') return runCommand('view.history')
       if (mod && e.altKey && e.key === 'ArrowRight') return runCommand('tab.next')
       if (mod && e.altKey && e.key === 'ArrowLeft') return runCommand('tab.prev')
       if (mod && e.key === 'w') return runCommand('file.close')
@@ -905,6 +941,22 @@ export function App() {
           commands={COMMANDS}
           onRun={runCommand}
           onClose={() => setPaletteOpen(false)}
+        />
+      )}
+
+      {historyOpen && (
+        <HistoryPanel
+          markdown={source}
+          sourcePath={doc?.path ?? null}
+          onClose={() => setHistoryOpen(false)}
+          onNotice={(m) => notify(m)}
+          onError={(m) => notify(m, 'error')}
+          onRestore={(restored) => {
+            const cur = activeDoc(session)
+            if (cur) setSession((s) => updateDoc(s, cur.id, { source: restored }))
+            setHistoryOpen(false)
+            notify('Restored.')
+          }}
         />
       )}
 

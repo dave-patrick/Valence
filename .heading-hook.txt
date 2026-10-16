@@ -1,0 +1,28 @@
+  // Scroll to a requested heading after a wiki link (with `#Heading`) lands in the editor.
+  useEffect(() => {
+    const wanted = wantedHeading.current
+    if (!wanted) return
+    if (!editor) return
+    let cancelled = false
+    const scrollToIt = () => {
+      if (cancelled) return
+      // Walk headings by plain text content.
+      const headings = [...editor.view.dom.querySelectorAll('h1,h2,h3,h4,h5,h6')]
+      const match = headings.find((h) => h.textContent?.trim().toLowerCase() === wanted.toLowerCase())
+      if (match) {
+        match.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        wantedHeading.current = null
+      }
+    }
+    // Try a few frames in case the editor hasn't mounted the doc yet.
+    let tries = 0
+    const tick = () => {
+      if (cancelled || !wantedHeading.current) return
+      scrollToIt()
+      if (wantedHeading.current) {
+        if (++tries < 20) setTimeout(tick, 120)
+      }
+    }
+    const id = setTimeout(tick, 120)
+    return () => { cancelled = true; clearTimeout(id) }
+  }, [editor, doc?.id])

@@ -1,5 +1,5 @@
 import { app, BrowserWindow, dialog, ipcMain, Menu, shell } from 'electron'
-import { readFile, writeFile, stat, readdir } from 'node:fs/promises'
+import { readFile, writeFile, stat, readdir, mkdir } from 'node:fs/promises'
 import { watch, type FSWatcher } from 'node:fs'
 import { basename, dirname } from 'node:path'
 
@@ -77,10 +77,22 @@ app.on('web-contents-created', (_e, contents) => {
    process. The renderer never has Node access. */
 
 ipcMain.handle('fs:read', async (_e, path: string) => readFile(path, 'utf8'))
+async function ensureParent(path: string): Promise<void> {
+  const dir = dirname(path)
+  if (!dir) return
+  try {
+    await mkdir(dir, { recursive: true })
+  } catch {
+    /* parent may already exist; nothing else to do */
+  }
+}
+
 ipcMain.handle('fs:write', async (_e, path: string, contents: string) => {
+  await ensureParent(path)
   await writeFile(path, contents, 'utf8')
 })
 ipcMain.handle('fs:writeBinary', async (_e, path: string, data: ArrayBuffer) => {
+  await ensureParent(path)
   await writeFile(path, Buffer.from(new Uint8Array(data)))
 })
 ipcMain.handle('fs:stat', async (_e, path: string) => {

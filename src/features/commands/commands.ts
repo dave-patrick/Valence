@@ -176,6 +176,7 @@ export const COMMANDS: readonly CommandDef[] = [
   { id: 'file.save', title: 'Save', group: 'File', keys: 'Ctrl S' },
   { id: 'file.saveAll', title: 'Save all', group: 'File', keys: 'Ctrl Shift S' },
   { id: 'file.export', title: 'Export', group: 'File', keys: 'Ctrl E', keywords: 'pdf word docx epub latex html' },
+  { id: 'view.history', title: 'Version history', group: 'View', keys: 'Ctrl H' },
   { id: 'file.close', title: 'Close document', group: 'File', keys: 'Ctrl W' },
   { id: 'file.reveal', title: 'Reveal in file manager', group: 'File', keywords: 'finder explorer folder' },
   { id: 'edit.copyMarkdown', title: 'Copy as Markdown', group: 'Edit', keywords: 'copy export text clip' },
