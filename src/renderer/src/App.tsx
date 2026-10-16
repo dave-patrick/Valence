@@ -18,6 +18,8 @@ import { renderToHtml } from '@core/render'
 import { computeStats } from '@features/stats/stats'
 import { outlineOf } from '@features/outline/outline'
 import { ExportDialog } from '@features/export/ExportDialog'
+import { Palette } from '@features/commands/Palette'
+import { COMMANDS } from '@features/commands/commands'
 import { loadSettings, rememberFolder, resolveTheme, saveSession, saveSettings } from '@features/settings/store'
 import type { Settings } from '@core/settings'
 import {
@@ -56,6 +58,7 @@ export function App() {
   const [readHtml, setReadHtml] = useState('')
   const [readError, setReadError] = useState<string | null>(null)
   const [exportOpen, setExportOpen] = useState(false)
+  const [paletteOpen, setPaletteOpen] = useState(false)
   const [activeHeading, setActiveHeading] = useState('')
 
   const doc = activeDoc(session)
@@ -359,68 +362,158 @@ export function App() {
 
   /* ── Menu, shortcuts, persistence ──────────────────────────── */
 
-  useEffect(() => {
-    return platform.menu.onCommand((id) => {
-      if (id === 'file.open') void openFile()
-      else if (id === 'file.save') void save()
-      else if (id === 'file.saveAll') void saveAll()
-      else if (id === 'file.settings') setSettingsOpen(true)
-      else if (id === 'file.export') setExportOpen(true)
-      else if (id === 'view.toggle') setView((v) => (v === 'split' ? 'hybrid' : 'split'))
-      else if (id === 'view.cycle')
-        setView((v) => (v === 'hybrid' ? 'source' : v === 'source' ? 'split' : 'hybrid'))
-      else if (id === 'app.theme' && settings) patchSettings({ theme: theme === 'light' ? 'dark' : 'light' })
+  /* ── Commands: one dispatcher for the menu, the keyboard and the palette ── */
+
+  const moveTab = useCallback((delta: number) => {
+    setSession((s) => {
+      const i = s.documents.findIndex((d) => d.id === s.activeId)
+      if (i === -1 || !s.documents.length) return s
+      const next = (i + delta + s.documents.length) % s.documents.length
+      return setActiveDoc(s, s.documents[next]!.id)
     })
-  }, [openFile, save, saveAll, patchSettings, settings, theme])
+  }, [])
+
+  const newDoc = useCallback(() => {
+    const created = untitled('')
+    setSession((s) => setActiveDoc(openDoc(s, created), created.id))
+  }, [])
+
+  /**
+   * Focus and typewriter are read by the editor through getters on a ref, so toggling means
+   * flipping the setting and letting the existing sync effect push the flag down.
+   */
+  const toggleFocus = useCallback(() => {
+    if (settings) patchSettings({ focusMode: !settings.focusMode })
+  }, [settings, patchSettings])
+
+  const toggleTypewriter = useCallback(() => {
+    if (settings) patchSettings({ typewriter: !settings.typewriter })
+  }, [settings, patchSettings])
+
+  /**
+   * The single place a command id turns into behaviour.
+   *
+   * Previously this was an if/else chain inline in the menu subscription, which meant the
+   * palette could not reuse it without duplicating every branch. Now all three surfaces call
+   * this, so a command cannot exist in the menu and be missing from the palette.
+   */
+  const runCommand = useCallback(
+    (id: string) => {
+      switch (id) {
+        case 'file.open':
+          return void openFile()
+        case 'file.save':
+          return void save()
+        case 'file.saveAll':
+          return void saveAll()
+        case 'file.new':
+          return void newDoc()
+        case 'file.export':
+          return setExportOpen(true)
+        case 'file.close': {
+          const current = activeDoc(session)
+          if (current) return void closeTab(current.id)
+          return
+        }
+        case 'file.reveal': {
+          const path = activeDoc(session)?.path
+          if (path) void platform.fs.reveal(path)
+          return
+        }
+
+        case 'view.hybrid':
+          return setView('hybrid')
+        case 'view.source':
+          return setView('source')
+        case 'view.split':
+          return setView('split')
+        case 'view.toggle':
+          return setView((v) => (v === 'split' ? 'hybrid' : 'split'))
+        case 'view.cycle':
+          return setView((v) => (v === 'hybrid' ? 'source' : v === 'source' ? 'split' : 'hybrid'))
+
+        case 'panel.files':
+          return setPanel((p) => (p === 'files' ? null : 'files'))
+        case 'panel.outline':
+          return setPanel((p) => (p === 'outline' ? null : 'outline'))
+        case 'panel.search':
+          return setPanel((p) => (p === 'search' ? null : 'search'))
+        case 'panel.toggle':
+          return setPanel((p) => (p === null ? 'outline' : null))
+
+        case 'write.focus':
+          return toggleFocus()
+        case 'write.typewriter':
+          return toggleTypewriter()
+        case 'write.stats':
+          return settings && patchSettings({ showInspector: !settings.showInspector })
+
+        case 'tab.next':
+          return moveTab(1)
+        case 'tab.prev':
+          return moveTab(-1)
+
+        case 'app.theme':
+          return settings && patchSettings({ theme: theme === 'light' ? 'dark' : 'light' })
+        case 'app.settings':
+          return setSettingsOpen(true)
+        default:
+          return
+      }
+    },
+    [
+      openFile,
+      save,
+      saveAll,
+      newDoc,
+      closeTab,
+      session,
+      platform,
+      toggleFocus,
+      toggleTypewriter,
+      moveTab,
+      settings,
+      patchSettings,
+      theme,
+    ],
+  )
+
+  useEffect(() => {
+    return platform.menu.onCommand(runCommand)
+  }, [runCommand])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const mod = e.ctrlKey || e.metaKey
-      if (mod && e.key === 's') {
+
+      // The palette owns its own keys while open; Ctrl+P must not also fire underneath it.
+      if (paletteOpen) return
+
+      if (mod && (e.key === 'p' || (e.shiftKey && e.key === 'P'))) {
+        // Ctrl+P and Ctrl+Shift+P. Taken before everything else so the palette is reachable
+        // no matter what the editor has focused.
         e.preventDefault()
-        if (e.shiftKey) void saveAll()
-        else void save()
-      } else if (mod && e.key === 'o') {
-        e.preventDefault()
-        void openFile()
-      } else if (mod && e.key === '\\') {
-        e.preventDefault()
-        setPanel((p) => (p === null ? 'outline' : null))
-      } else if (mod && e.key === '/') {
-        e.preventDefault()
-        patchSettings({ theme: theme === 'light' ? 'dark' : 'light' })
-      } else if (mod && e.key === ',') {
-        e.preventDefault()
-        setSettingsOpen(true)
-      } else if (mod && e.key === 'e') {
-        // Ctrl/Cmd+E. Not a browser or Electron default in a document editor, and export is
-        // frequent enough that it should not require reaching for the menu.
-        e.preventDefault()
-        setExportOpen(true)
-      } else if (mod && e.altKey && e.key === 'ArrowRight') {
-        e.preventDefault()
-        moveTab(1)
-      } else if (mod && e.altKey && e.key === 'ArrowLeft') {
-        e.preventDefault()
-        moveTab(-1)
-      } else if (mod && e.key === 'w') {
-        e.preventDefault()
-        const current = activeDoc(session)
-        if (current) void closeTab(current.id)
+        setPaletteOpen(true)
+        return
       }
+
+      // Everything else is a named command, so a shortcut and the palette entry for the same
+      // action cannot drift apart.
+      if (mod && e.shiftKey && e.key === 'S') return runCommand('file.saveAll')
+      if (mod && e.shiftKey && e.key === 'N') return runCommand('file.new')
+      if (mod && e.key === 's') return runCommand('file.save')
+      if (mod && e.key === 'o') return runCommand('file.open')
+      if (mod && e.key === '\\') return runCommand('panel.toggle')
+      if (mod && e.key === '/') return runCommand('app.theme')
+      if (mod && e.key === ',') return runCommand('app.settings')
+      if (mod && e.key === 'e') return runCommand('file.export')
+      if (mod && e.altKey && e.key === 'ArrowRight') return runCommand('tab.next')
+      if (mod && e.altKey && e.key === 'ArrowLeft') return runCommand('tab.prev')
+      if (mod && e.key === 'w') return runCommand('file.close')
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-
-    function moveTab(delta: number) {
-      setSession((s) => {
-        const i = s.documents.findIndex((d) => d.id === s.activeId)
-        if (i === -1 || !s.documents.length) return s
-        const next = (i + delta + s.documents.length) % s.documents.length
-        return setActiveDoc(s, s.documents[next]!.id)
-      })
-    }
-  }, [openFile, save, saveAll, closeTab, session, theme, patchSettings])
+  }, [runCommand, paletteOpen])
 
   // Persist the session when it changes and nothing is dirty.
   useEffect(() => {
@@ -546,11 +639,13 @@ export function App() {
               )}
             </div>
 
-            <Inspector
-              stats={stats}
-              headings={headings.length}
-              goal={settings?.dailyWordGoal ?? 0}
-            />
+            {(settings?.showInspector ?? true) && (
+              <Inspector
+                stats={stats}
+                headings={headings.length}
+                goal={settings?.dailyWordGoal ?? 0}
+              />
+            )}
             <StrataGutter headings={headings} active={activeHeading} />
           </div>
 
@@ -574,6 +669,14 @@ export function App() {
           position="bottom"
           onSelect={(id) => setSession((s) => setActiveDoc(s, id))}
           onClose={(id) => void closeTab(id)}
+        />
+      )}
+
+      {paletteOpen && (
+        <Palette
+          commands={COMMANDS}
+          onRun={runCommand}
+          onClose={() => setPaletteOpen(false)}
         />
       )}
 
@@ -628,6 +731,7 @@ const DEFAULT_SAFE: Settings = {
   typewriter: false,
   focusMode: false,
   showLineNumbers: false,
+  showInspector: true,
   dailyWordGoal: 0,
   defaultSaveDir: '',
   recentFolders: [],

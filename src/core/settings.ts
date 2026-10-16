@@ -19,6 +19,8 @@ export interface Settings {
   typewriter: boolean
   focusMode: boolean
   showLineNumbers: boolean
+  /** Shows the right-hand inspector. Costs the reader width, so it is a preference. */
+  showInspector: boolean
   /** Word count goal shown as progress in the inspector. 0 disables it. */
   dailyWordGoal: number
 
@@ -40,6 +42,7 @@ export const DEFAULT_SETTINGS: Settings = {
   typewriter: false,
   focusMode: false,
   showLineNumbers: false,
+  showInspector: true,
   dailyWordGoal: 0,
   defaultSaveDir: '',
   recentFolders: [],
@@ -69,6 +72,7 @@ export function normaliseSettings(input: unknown): Settings {
     typewriter: bool(raw['typewriter'], DEFAULT_SETTINGS.typewriter),
     focusMode: bool(raw['focusMode'], DEFAULT_SETTINGS.focusMode),
     showLineNumbers: bool(raw['showLineNumbers'], DEFAULT_SETTINGS.showLineNumbers),
+    showInspector: bool(raw['showInspector'], DEFAULT_SETTINGS.showInspector),
     dailyWordGoal: nonNegativeInt(raw['dailyWordGoal'], DEFAULT_SETTINGS.dailyWordGoal),
 
     defaultSaveDir: str(raw['defaultSaveDir']),

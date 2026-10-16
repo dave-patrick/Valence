@@ -30,7 +30,7 @@ What is built, what is deliberately deferred, and why. Every item traces to a fi
 | Electron main process, preload bridge, menu, PDF export | `src/main/`, `src/preload/` |
 | electron-builder packaging config for mac/win/linux | `package.json` -> `build` |
 
-271 tests passing, typecheck clean, production build succeeds.
+307 tests passing, typecheck clean, production build succeeds.
 
 ### M1.1 -- what it does
 
@@ -79,7 +79,7 @@ individually rather than one representative case.
 
 ## Verification status -- read this before trusting the visuals
 
-Functional behaviour is verified three ways: 271 unit and integration tests, a jsdom mount
+Functional behaviour is verified three ways: 307 unit and integration tests, a jsdom mount
 that drives the real app, and a live browser session reading computed styles from the
 running app.
 
@@ -250,17 +250,22 @@ it is the main thing to revisit if multi-folder vaults matter.
 
 Neither reference app does these, and both would benefit:
 
+- ~~**Command palette.**~~ **Done.** `Ctrl/Cmd+P`. One registry drives the menu, the keyboard
+  and the palette, so a command cannot exist in one and be missing from another. The matcher is
+  a real search over all valid alignments rather than the usual greedy walk — greedy leftmost
+  matches the wrong span ("pdf" matches the *p* in "Ex**p**ort as P**DF**"), and greedy
+  best-scoring strands the rest of the query ("pd" picks the *p* of "paste", which has no *d*
+  after it). Both are pinned in `test/commands.test.ts`.
 - **Wiki links and backlinks.** `[[Note name]]` resolved against the vault, with a backlinks
-  panel. The one thing people miss most when leaving Obsidian.
+  panel. The one thing people miss most when leaving Obsidian. Blocked on a real workspace
+  concept — the tree is currently rooted at the open document's folder.
 - **Session and version history.** Autosave snapshots with a diff view. Typora has history
   but no diff; a real diff is worth more than either.
-- **Command palette.** One entry point for every command, so the menu bar stops being the
-  only discoverable surface.
 - **AI assistance, done honestly.** Rewrite, continue, and explain scoped to a selection --
   explicitly not "chat with your document", which is the feature that bloats editors.
 - **Plugin API.** Muya's named-UI-registry pattern: plugins register named UI components and
   the editor dispatches events by name. `@muyajs/core` is the precedent that this is
-  tractable.
+  tractable. The command registry is a reasonable first step toward it.
 
 ---
 

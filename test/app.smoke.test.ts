@@ -11,7 +11,7 @@
  * is demonstrated without booting Electron.
  */
 
-import { describe, expect, it, beforeAll, afterAll } from 'vitest'
+import { describe, expect, it, beforeAll, afterAll, afterEach } from 'vitest'
 import { createElement } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 
@@ -25,6 +25,10 @@ beforeAll(async () => {
     unobserve() {}
     disconnect() {}
   }
+  // Also absent in jsdom. The command palette calls it to keep the highlighted row in view;
+  // real browsers have had it for years, so this is a jsdom gap rather than a guarded call
+  // in the component.
+  Element.prototype.scrollIntoView ??= function scrollIntoView() {}
   window.matchMedia ??= ((q: string) =>
     ({
       matches: false,
@@ -113,10 +117,10 @@ async function clickAndWait(label: string, what: string): Promise<HTMLElement> {
 }
 
 /** Waits for something to disappear, which is how a close is asserted. */
-async function waitGone(what: string, label = what): Promise<void> {
+async function waitGone(what: string, label = what, timeoutMs = 10000): Promise<void> {
   const start = Date.now()
   while (container.querySelector(what)) {
-    if (Date.now() - start > 10000) throw new Error(`timed out waiting for ${label} to disappear`)
+    if (Date.now() - start > timeoutMs) throw new Error(`timed out waiting for ${label} to disappear`)
     await new Promise((r) => setTimeout(r, 20))
   }
 }
@@ -296,6 +300,146 @@ describe('export dialog', () => {
     await pressCtrlE()
     click(container.querySelector('[aria-label="Close export dialog"]'))
     await waitGone('[role="dialog"][aria-label="Export"]', 'the export dialog')
+  })
+})
+
+describe('command palette', () => {
+  const input = () => container.querySelector('[aria-label="Type a command"]') as HTMLInputElement | null
+  const rows = () =>
+    [...container.querySelectorAll('[role="option"]')].map((o) => o.textContent?.trim() ?? '')
+  const selected = () =>
+    container.querySelector('[role="option"][aria-selected="true"]')?.textContent?.trim() ?? null
+
+  function type(el: HTMLInputElement, text: string): void {
+    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!
+    setter.call(el, text)
+    el.dispatchEvent(new Event('input', { bubbles: true }))
+  }
+
+  const press = (el: HTMLElement, key: string) =>
+    el.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }))
+
+  async function closeIfOpen(): Promise<void> {
+    if (!input()) return
+    press(input()!, 'Escape')
+    await waitGone('[aria-label="Command palette"]', 'the palette', 2000)
+  }
+
+  /**
+   * Opens a *fresh* palette.
+   *
+   * Closes one first if it is already up. Ctrl+P is inert while the palette is open — it has
+   * to be, or typing "p" into the query would reopen the palette under you — so a test that
+   * inherited a half-typed palette from the previous one would silently keep that query.
+   */
+  async function open(): Promise<HTMLInputElement> {
+    await closeIfOpen()
+    document.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'p', ctrlKey: true, bubbles: true, cancelable: true }),
+    )
+    const el = await waitFor(() => input(), 'the palette input', 2000)
+    await waitFor(() => rows().length > 0, 'palette results', 2000)
+    return el
+  }
+
+  afterEach(closeIfOpen)
+
+  it('opens on Ctrl+P with the input focused', async () => {
+    const el = await open()
+    expect(document.activeElement).toBe(el)
+  })
+
+  it('lists every command when nothing is typed', async () => {
+    await open()
+    // Grouped by category, so the first entries are the File group.
+    expect(rows()[0]).toContain('New document')
+    expect(container.textContent).toContain('File')
+    expect(container.textContent).toContain('Writing')
+  })
+
+  it('filters as you type and ranks the best match first', async () => {
+    const el = await open()
+    type(el, 'export')
+    await waitFor(() => rows()[0]?.includes('Export'), 'Export to rank first', 2000)
+    expect(rows()[0]).toContain('Export')
+  })
+
+  it('finds a command by a keyword it does not display', async () => {
+    const el = await open()
+    type(el, 'word')
+    await waitFor(() => rows().length > 0, 'keyword results', 2000)
+    expect(rows().some((r) => r.includes('Export'))).toBe(true)
+  })
+
+  it('says so when nothing matches, rather than showing a bare list', async () => {
+    const el = await open()
+    type(el, 'zzzzz')
+    await waitFor(() => rows().length === 0, 'an empty result list', 2000)
+    expect(container.textContent).toMatch(/No command matches/i)
+  })
+
+  it('moves the selection with the arrow keys', async () => {
+    const el = await open()
+    type(el, 'view')
+    await waitFor(() => rows().length > 1, 'several view commands', 2000)
+
+    const first = selected()
+    press(el, 'ArrowDown')
+    await tick()
+    expect(selected()).not.toBe(first)
+  })
+
+  it('wraps from the first entry to the last on ArrowUp', async () => {
+    const el = await open()
+    await waitFor(() => rows().length > 1, 'the full list', 2000)
+
+    press(el, 'ArrowUp')
+    await tick()
+    expect(selected()).toBe(rows()[rows().length - 1])
+  })
+
+  it('runs the highlighted command on Enter and closes', async () => {
+    const el = await open()
+    type(el, 'view source')
+    await waitFor(() => selected()?.includes('View: source'), 'View: source to rank first', 2000)
+
+    press(el, 'Enter')
+    await waitGone('[aria-label="Command palette"]', 'the palette', 2000)
+
+    // The command really ran: the source view replaced the editor.
+    expect(container.querySelector('textarea[data-view="source"]')).toBeTruthy()
+  })
+
+  it('closes on Escape without running anything', async () => {
+    const el = await open()
+    const before = !!container.querySelector('textarea[data-view="source"]')
+    press(el, 'Escape')
+    await waitGone('[aria-label="Command palette"]', 'the palette', 2000)
+    expect(!!container.querySelector('textarea[data-view="source"]')).toBe(before)
+  })
+
+  it('closes when the backdrop is clicked, but not when the panel is', async () => {
+    await open()
+    // A press that starts inside must not dismiss.
+    input()!.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))
+    await tick()
+    expect(input()).toBeTruthy()
+
+    container
+      .querySelector('[aria-label="Command palette"]')!
+      .dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))
+    await waitGone('[aria-label="Command palette"]', 'the palette', 2000)
+  })
+
+  it('runs a command when its row is clicked', async () => {
+    const el = await open()
+    const before = document.documentElement.dataset.theme
+    type(el, 'toggle light and dark theme')
+    await waitFor(() => selected(), 'a selected row', 2000)
+
+    click(container.querySelector('[role="option"][aria-selected="true"]'))
+    await waitGone('[aria-label="Command palette"]', 'the palette', 2000)
+    expect(document.documentElement.dataset.theme).not.toBe(before)
   })
 })
 
