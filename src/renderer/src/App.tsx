@@ -161,6 +161,23 @@ export function App() {
    * shape or position depending on severity is two things to learn instead of one.
    */
   const [notice, setNotice] = useState<{ text: string; tone: 'info' | 'error' } | null>(null)
+
+  // Custom CSS, the "Custom CSS" half of the (mostly undone) theme gallery. The text lands
+  // in a single style tag that replaces itself on every edit, so nothing leaks.
+  useEffect(() => {
+    let tag = document.head.querySelector('style[data-valence-custom]') as HTMLStyleElement | null
+    if (!settings?.customCss) {
+      tag?.remove()
+      return
+    }
+    if (!tag) {
+      tag = document.createElement('style')
+      tag.setAttribute('data-valence-custom', '')
+      document.head.appendChild(tag)
+    }
+    tag.textContent = settings.customCss
+    return () => tag?.remove()
+  }, [settings?.customCss])
   const noticeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
   const notify = useCallback((text: string, tone: 'info' | 'error' = 'info') => {
@@ -1014,6 +1031,7 @@ const DEFAULT_SAFE: Settings = {
   showInspector: true,
   workspaceRoot: '',
   recentWorkspaces: [],
+  customCss: '',
   dailyWordGoal: 0,
   defaultSaveDir: '',
   recentFolders: [],

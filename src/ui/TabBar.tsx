@@ -263,6 +263,19 @@ function SettingsFields({
           on={settings.restoreSession}
           onChange={(v) => onChange({ restoreSession: v })}
         />
+
+     <section>
+       <h3>Custom CSS</h3>
+       <Field label="Custom stylesheet" hint="Appended to every surface. House variables (var(--...)) are available.">
+         <textarea
+           className="valence-input valence-input--area"
+           value={settings.customCss}
+           onChange={(e) => onChange({ customCss: e.target.value })}
+           rows={6}
+           spellCheck={false}
+         />
+       </Field>
+     </section>
       </section>
     </div>
   )

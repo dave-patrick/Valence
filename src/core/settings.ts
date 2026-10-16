@@ -36,6 +36,8 @@ export interface Settings {
   defaultSaveDir: string
   /** Folders offered in the file panel, most recent first. */
   recentFolders: string[]
+  /** Free-form CSS appended to every surface. Supports the house variables. */
+  customCss: string
   /** Restore the previous session's tabs on launch. */
   restoreSession: boolean
 
@@ -52,6 +54,7 @@ export const DEFAULT_SETTINGS: Settings = {
   showInspector: true,
   workspaceRoot: '',
   recentWorkspaces: [],
+  customCss: '',
   dailyWordGoal: 0,
   defaultSaveDir: '',
   recentFolders: [],
@@ -88,6 +91,7 @@ export function normaliseSettings(input: unknown): Settings {
     recentFolders: stringList(raw['recentFolders']).slice(0, MAX_RECENT_FOLDERS),
   workspaceRoot: str(raw['workspaceRoot']),
   recentWorkspaces: stringList(raw['recentWorkspaces']).slice(0, MAX_RECENT_FOLDERS),
+  customCss: str(raw['customCss']),
   restoreSession: bool(raw['restoreSession'], DEFAULT_SETTINGS.restoreSession),
     lastSession: stringList(raw['lastSession']).slice(0, MAX_SESSION_DOCUMENTS),
   }
