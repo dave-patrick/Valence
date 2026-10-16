@@ -54,6 +54,7 @@ export function App() {
   const [panel, setPanel] = useState<PanelId>('outline')
   const [sidebarWidth, setSidebarWidth] = useState(268)
   const [readHtml, setReadHtml] = useState('')
+  const [readError, setReadError] = useState<string | null>(null)
   const [exportOpen, setExportOpen] = useState(false)
   const [activeHeading, setActiveHeading] = useState('')
 
@@ -252,9 +253,32 @@ export function App() {
     // second rendering that can drift from it.
     if (view !== 'split' && !exportOpen) return
     let cancelled = false
-    void renderToHtml(source, { mode: theme }).then((r) => {
-      if (!cancelled) setReadHtml(r.html)
-    })
+
+    void renderToHtml(source, { mode: theme }).then(
+      (r) => {
+        if (cancelled) return
+        // Paint the prose now; diagrams arrive later. Waiting for Mermaid first left the
+        // whole reader blank whenever a document contained even one diagram.
+        setReadHtml(r.html)
+        setReadError(null)
+
+        if (r.diagrams > 0) {
+          void r.hydrated.then((h) => {
+            if (!cancelled) setReadHtml(h)
+          })
+        }
+      },
+      // Without this the rejection is unhandled and the read pane just stays empty, which
+      // looks identical to a slow render. A blank pane with a quiet console is the worst
+      // possible failure mode for a feature whose entire job is to show you something.
+      (e: unknown) => {
+        if (cancelled) return
+        const message = e instanceof Error ? e.message : String(e)
+        setReadError(message)
+        console.error('render failed', e)
+      },
+    )
+
     return () => {
       cancelled = true
     }
@@ -503,6 +527,11 @@ export function App() {
                   />
                   {/* Content comes from our own render pipeline over the user's own file. */}
                   <div className="read-surface" dangerouslySetInnerHTML={{ __html: readHtml }} />
+                  {readError && (
+                    <p className="read-error" role="status">
+                      The preview could not be rendered: {readError}
+                    </p>
+                  )}
                 </div>
               ) : (
                 <EditorPane

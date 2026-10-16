@@ -887,6 +887,48 @@
   margin: 1.6em 0;
   text-align: center;
 }
+
+/* A diagram that has not rendered yet. It reserves roughly the right height so the prose
+   below does not jump when Mermaid lands, and says so rather than showing an empty box. */
+.read-surface .valence-diagram--pending {
+  min-height: 84px;
+  border: 1px dashed var(--line);
+  border-radius: var(--radius);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.read-surface .valence-diagram--pending::after {
+  content: 'rendering diagram...';
+  font-size: 0.8em;
+  color: var(--text-faint);
+}
+
+/* A diagram Mermaid refused. Shows the source, which is the only useful thing to show. */
+.read-surface .valence-diagram--failed {
+  text-align: left;
+}
+.read-surface .valence-diagram__source {
+  background: var(--warn-wash);
+  border: 1px solid var(--warn);
+  color: var(--warn);
+  padding: 0.8rem 1rem;
+  font-size: 0.78em;
+  white-space: pre;
+  overflow-x: auto;
+}
+
+/* A render that rejected outright. Without this the pane is silently blank, which reads as
+   "still loading" indefinitely. */
+.read-error {
+  margin: 1rem 0;
+  padding: 0.7rem 0.9rem;
+  border-radius: var(--radius-sm);
+  background: var(--danger-wash);
+  border: 1px solid var(--danger);
+  color: var(--danger);
+  font-size: 0.8em;
+}
 .read-surface .valence-math {
   margin: 1.4em 0;
   overflow-x: auto;

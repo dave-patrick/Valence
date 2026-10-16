@@ -3,9 +3,19 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!--
+      `wasm-unsafe-eval` is required and narrow: Shiki's TextMate grammar engine is
+      WebAssembly, and 'wasm-unsafe-eval' permits compiling WASM modules without permitting
+      eval() of JavaScript strings. Without it `renderToHtml` rejects at the highlighter, and
+      because the read pane had no error handling that presented as a permanently blank
+      preview rather than a failure anyone could see.
+
+      Do not "fix" a blank preview by adding plain 'unsafe-eval'. That would re-open eval for
+      injected script, which is the thing this policy exists to prevent.
+    -->
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: file:; script-src 'self'"
+      content="default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: file:; script-src 'self' 'wasm-unsafe-eval'"
     />
     <title>Valence</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />

@@ -30,7 +30,7 @@ What is built, what is deliberately deferred, and why. Every item traces to a fi
 | Electron main process, preload bridge, menu, PDF export | `src/main/`, `src/preload/` |
 | electron-builder packaging config for mac/win/linux | `package.json` -> `build` |
 
-265 tests passing, typecheck clean, production build succeeds.
+271 tests passing, typecheck clean, production build succeeds.
 
 ### M1.1 -- what it does
 
@@ -79,28 +79,65 @@ individually rather than one representative case.
 
 ## Verification status -- read this before trusting the visuals
 
-Functional behaviour is verified three ways: 265 unit and integration tests, a jsdom mount
+Functional behaviour is verified three ways: 271 unit and integration tests, a jsdom mount
 that drives the real app, and a live browser session reading computed styles from the
-running app. That live session earned its keep -- it caught a bug no test could:
+running app.
 
-> **Tailwind v4 tree-shook the entire design token set.** `@theme` variables are only emitted
-> when a generated utility references them, and this stylesheet reads tokens through raw
-> `var()`, which does not count. Every token was dropped at build time and the prose silently
-> fell back to **Times New Roman**. Unit tests and jsdom were both green throughout; only
-> reading `getComputedStyle` from a real browser showed it.
+**A method note, because it will mislead anyone repeating this.** In a headless browser, CSS
+transitions do not tick. `getComputedStyle` therefore returns the *pre-transition* value for
+any element carrying `transition-colors`, and colour measurements on those elements are
+worthless. Freezing transitions before auditing is not optional — a full contrast audit of
+the sidebar and tab bar reported eleven failures at ratios as low as 1.05, and every one of
+them vanished the moment transitions were disabled. Nothing was wrong with those colours.
+
+### What the live session found that no test could
+
+Four defects, all invisible to unit tests and jsdom, all now fixed:
+
+> **Tailwind had never run.** `@tailwindcss/vite` was not a dependency and not registered in
+> either Vite config, so `@import 'tailwindcss'` expanded to nothing and every utility class
+> in the JSX was an inert string. Zero utilities existed in the output. Not one layout rule
+> applied: the rail, sidebar and status bar stacked as block elements and the document column
+> was not centred. An element with `className="flex h-full flex-col"` computed
+> `display: block`.
+
+> **The CSP blocked Shiki outright.** `script-src 'self'` forbids WebAssembly instantiation,
+> and Shiki's TextMate grammar engine is WebAssembly. `renderToHtml` therefore rejected at the
+> highlighter — so syntax highlighting had *never* worked, and the read pane had no error
+> handling, so it presented as a permanently blank preview. Fixed with `'wasm-unsafe-eval'`,
+> which permits WASM compilation without permitting `eval()` of JavaScript strings.
+
+> **Diagram rendering was unreachable dead code.** `isDiagram()` existed and was never called;
+> every fence went through Shiki, so a ```mermaid block rendered as a highlighted code sample.
+> The `findDiagrams` regex that was supposed to catch the output also matched on `-->` and so
+> would have broken on any Mermaid arrow (`A-->B`) had it ever run. Both are gone: diagrams are
+> now recognised from the structured fence list and replaced by index, with no regex.
+
+> **The read pane waited on Mermaid before showing anything.** One diagram in a plain document
+> meant the whole reader stayed blank while a multi-megabyte graph library loaded. `renderToHtml`
+> now returns the prose immediately with placeholders and hands back `hydrated` separately, so
+> the reader paints first and diagrams patch in when they land. Export still awaits hydration,
+> because a placeholder in a PDF is a bug.
+
+The pattern across all four: **a failure that produces nothing is the one that survives.** The
+CSP rejection, the dead render path, the blocking await — each one had no test because each one
+produced silence rather than a wrong answer. `renderToHtml` now has an error surface, and the
+read pane says so instead of staying blank.
 
 **Not verified:**
 
 | Area | Why |
 |---|---|
-| **Mermaid diagram sizing** | Mermaid measures via a scratch element; in this headless context it returns zero and emits its `width="400em"` fallback, producing a 400000-unit viewBox. The width guard holds (no overflow, capped inside the column), but the rendered diagram was never seen correctly sized. **Verify in a real window before trusting it.** |
-| Screenshot / visual review | The browser tool requires a visible desktop window. Palette, type scale, measure, gutter and marker behaviour were confirmed via computed styles and DOM, but no one has laid eyes on the result. |
+| **Mermaid diagram output** | The prose-and-placeholder path is verified: prose renders, the placeholder holds the right height, no error. Mermaid itself never finished loading in dev — Vite serves its graph (mermaid, ELK, graphlib, cytoscape) unbundled and one module at a time, so the diagram stayed pending for minutes. Needs a check against a packaged build. |
+| **Mermaid diagram sizing** | Same reason, and it was already unverified before. |
+| Screenshot / visual review | Available intermittently; the desktop window loses visibility. Layout, overflow, contrast and geometry were confirmed by measurement instead, across both themes and all three view modes. |
 | Print / PDF pagination | Not exercised. |
 | Pandoc export paths | Detected at runtime; Pandoc is not installed here. |
 | Table toolbar via pointer | The component is tested against a real editor with real selections. Synthetic mouse events do not drive ProseMirror's `posAtCoords`, so clicking a `<td>` in an automated browser does not enter the table -- the toolbar's pointer behaviour is unverified end to end. |
 
-The honest summary: **the architecture, the engine and the interaction model are tested. The
-appearance is reasoned, not reviewed.**
+The honest summary: **the architecture, the engine and the interaction model are tested, and
+the layout is measured. The rendered appearance of a diagram is still unverified, and nobody
+has laid eyes on a packaged build.**
 
 ---
 

@@ -24,8 +24,21 @@ export interface RenderOptions {
 }
 
 export interface RenderResult {
+  /** Renderable immediately. Diagram fences are placeholders, not yet SVG. */
   html: string
   title: string
+  /** How many diagram fences the document contains. */
+  diagrams: number
+  /**
+   * The same document with every diagram resolved.
+   *
+   * Slow, and deliberately so: it pulls in Mermaid, which is megabytes of graph-rendering
+   * library. Awaiting this before showing anything means a single diagram in an otherwise
+   * plain document leaves the reader blank while that loads — so callers that render for
+   * *reading* use `html` first and swap in `hydrated` when it lands. Callers that render for
+   * *output* (export, print) must await it, because a placeholder in a PDF is a bug.
+   */
+  hydrated: Promise<string>
 }
 
 const MATH_BLOCK = (state: StateBlock, startLine: number, endLine: number, silent: boolean): boolean => {
@@ -137,7 +150,17 @@ export async function renderToHtml(source: string, options: RenderOptions = {}):
 
   let resolved = bodyHtml
   const theme = mode === 'dark' ? 'github-dark' : 'github-light'
+  const diagrams: Diagram[] = []
+
   for (const item of pending) {
+    // Diagram languages go to the diagram renderer, not the syntax highlighter. Shiki would
+    // happily colour `graph TD; A-->B` as a code sample, which is exactly wrong.
+    if (isDiagram(item.lang)) {
+      diagrams.push({ lang: item.lang, source: item.code.trim() })
+      resolved = resolved.replace(`<div id="${item.id}"></div>`, PLACEHOLDER)
+      continue
+    }
+
     const loaded = hl.getLoadedLanguages().includes(item.lang)
     const rendered = await hl.codeToHtml(item.code, {
       lang: loaded ? item.lang : 'text',
@@ -149,13 +172,19 @@ export async function renderToHtml(source: string, options: RenderOptions = {}):
     )
   }
 
-  const { html: finalHtml } = await renderDiagrams(resolved, mode)
+  const withPlaceholders = resolved
 
-  if (!options.standalone) return { html: finalHtml, title }
+  const hydratedDiagrams = renderDiagrams(withPlaceholders, diagrams, mode)
+
+  const hydrated = hydratedDiagrams.then((h) =>
+    options.standalone ? standaloneDocument(title, (data ?? '') + '\n' + h, options) : h,
+  )
 
   return {
     title,
-    html: standaloneDocument(title, (data ?? '') + '\n' + finalHtml, options),
+    html: withPlaceholders,
+    diagrams: diagrams.length,
+    hydrated: options.standalone ? hydrated : Promise.resolve(withPlaceholders),
   }
 }
 
@@ -163,9 +192,24 @@ function isDiagram(lang: string): boolean {
   return ['mermaid', 'vega', 'vega-lite', 'plantuml', 'abc', 'graphviz'].includes(lang)
 }
 
-async function renderDiagrams(html: string, mode: 'light' | 'dark'): Promise<{ html: string; diagrams: number }> {
-  const nodes = [...html.matchAll(/<!--diagram:([\w-]+)-->\n([\s\S]*?)(?=<\/(?:pre|div)>|-->)/g)]
-  if (!nodes.length) return { html, diagrams: 0 }
+interface Diagram {
+  lang: string
+  source: string
+}
+
+/** Exact markup for a diagram that has not rendered yet. */
+const PLACEHOLDER = '<figure class="valence-diagram valence-diagram--pending"></figure>'
+const DIAGRAM = 'valence-diagram'
+const FAILURE = 'valence-diagram valence-diagram--failed'
+
+/**
+ * Resolves every diagram, or fails gracefully per-diagram.
+ *
+ * A diagram that will not render shows its own source instead of taking the document down
+ * with it — one bad fence in a long note should cost you one figure, not the page.
+ */
+async function renderDiagrams(html: string, diagrams: readonly Diagram[], mode: 'light' | 'dark'): Promise<string> {
+  if (!diagrams.length) return html
 
   const mermaid = (await import('mermaid')).default
   mermaid.initialize({
@@ -175,18 +219,28 @@ async function renderDiagrams(html: string, mode: 'light' | 'dark'): Promise<{ h
     fontFamily: 'var(--font-sans)',
   })
 
-  let count = 0
+  const rendered = await Promise.all(
+    diagrams.map(async (d, i) => {
+      try {
+        const { svg } = await mermaid.render(`d${i + 1}`, d.source)
+        return { body: svg, failed: false }
+      } catch {
+        return {
+          body: `<pre class="valence-diagram__source">${escapeHtml(d.source)}</pre>`,
+          failed: true,
+        }
+      }
+    }),
+  )
+
+  // Every placeholder is byte-identical, so replacing the first remaining one per diagram
+  // consumes them in document order. Nothing here depends on matching a unique token, which
+  // is what made the previous single-pass `replace` fragile.
   let out = html
-  for (const m of nodes) {
-    if (m[1] !== 'mermaid') continue
-    try {
-      const { svg } = await mermaid.render(`d${++count}`, m[2]!.trim())
-      out = out.replace(m[0], `<figure class="valence-diagram">${svg}</figure>`)
-    } catch {
-      out = out.replace(m[0], `<figure class="valence-diagram valence-diagram--failed">${m[2]!.trim()}</figure>`)
-    }
+  for (const { body, failed } of rendered) {
+    out = out.replace(PLACEHOLDER, `<figure class="${failed ? FAILURE : DIAGRAM}">${body}</figure>`)
   }
-  return { html: out, diagrams: count }
+  return out
 }
 
 function standaloneDocument(title: string, bodyHtml: string, options: RenderOptions): string {
