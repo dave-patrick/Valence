@@ -76,8 +76,8 @@
     },
     "win": {
       "target": [
-        "nsis",
-        "portable"
+        "portable",
+        "nsis"
       ]
     },
     "linux": {
