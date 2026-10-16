@@ -25,6 +25,13 @@ export interface Settings {
   dailyWordGoal: number
 
   /** Locations. Empty means "ask each time" rather than "nowhere". */
+
+  /** The workspace root, if one is open. An empty string means "none chosen yet"; the file tree
+   *  and wiki index fall back to the active document's folder in that case, so a single-file
+   *  session keeps behaving exactly as it did before this feature existed. */
+  workspaceRoot: string
+  /** Workspaces opened recently, most recent first. */
+  recentWorkspaces: string[]
   /** Directory the Save As dialog opens in. */
   defaultSaveDir: string
   /** Folders offered in the file panel, most recent first. */
@@ -43,6 +50,8 @@ export const DEFAULT_SETTINGS: Settings = {
   focusMode: false,
   showLineNumbers: false,
   showInspector: true,
+  workspaceRoot: '',
+  recentWorkspaces: [],
   dailyWordGoal: 0,
   defaultSaveDir: '',
   recentFolders: [],
@@ -77,7 +86,9 @@ export function normaliseSettings(input: unknown): Settings {
 
     defaultSaveDir: str(raw['defaultSaveDir']),
     recentFolders: stringList(raw['recentFolders']).slice(0, MAX_RECENT_FOLDERS),
-    restoreSession: bool(raw['restoreSession'], DEFAULT_SETTINGS.restoreSession),
+  workspaceRoot: str(raw['workspaceRoot']),
+  recentWorkspaces: stringList(raw['recentWorkspaces']).slice(0, MAX_RECENT_FOLDERS),
+  restoreSession: bool(raw['restoreSession'], DEFAULT_SETTINGS.restoreSession),
     lastSession: stringList(raw['lastSession']).slice(0, MAX_SESSION_DOCUMENTS),
   }
 }

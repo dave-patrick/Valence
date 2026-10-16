@@ -839,6 +839,8 @@ const DEFAULT_SAFE: Settings = {
   focusMode: false,
   showLineNumbers: false,
   showInspector: true,
+  workspaceRoot: '',
+  recentWorkspaces: [],
   dailyWordGoal: 0,
   defaultSaveDir: '',
   recentFolders: [],
