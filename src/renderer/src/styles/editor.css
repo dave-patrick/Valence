@@ -848,7 +848,11 @@
 /* Split mode puts the read pipeline beside the editor. */
 .split-pane {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  /* minmax(0, …) rather than plain 1fr. A `1fr` track has an implicit min-content floor,
+     so when the read pane's 760px measure exceeded half the window the track grew to fit it
+     and pushed the whole page sideways — `min-width: 0` on the child cannot undo a floor
+     set by the track itself. */
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   min-height: 0;
   flex: 1;
 }
@@ -864,7 +868,8 @@
   font-family: var(--font-body);
   font-size: 18px;
   line-height: 1.62;
-  max-width: var(--editor-width);
+  /* `min()` so the measure degrades to the pane instead of the pane growing to the measure. */
+  max-width: min(var(--editor-width), 100%);
   margin: 0 auto;
   padding: 3.5rem 2.5rem 40vh;
 }
