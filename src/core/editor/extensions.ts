@@ -22,7 +22,7 @@ import { InlineMathNode, MathBlockNode, DiagramNode } from './nodes'
 import { ColumnReorder } from './columnDrag'
 import { ViewModes } from './viewModes'
 import { ClipboardPaste, type ClipboardHooks } from './clipboard'
-
+import WikiLink from './wikiLink'
 /** Live switches the editor reads through getters rather than captured values. */
 export interface EditorModeFlags {
   focusMode: () => boolean
@@ -54,6 +54,10 @@ export function createExtensions(
     // in the list does not change when it sees a press relative to the other extensions.
     ColumnReorder,
 
+    // Wiki links. `[[Note]]` round-trips through the markdown layer; in the editor they show
+    // as a distinct mark that click-to-follow can hook (see wikiLink.ts).
+    WikiLink,
+
     // Only present when the app can actually write images; without a platform that would
     // fail silently on every paste.
     ...(clipboard ? [ClipboardPaste(clipboard)] : []),
@@ -69,7 +73,7 @@ export function createExtensions(
       codeBlock: { HTMLAttributes: { class: 'valence-codeblock' } },
       // Horizontal rules round-trip through `blocksToHtml` as `<hr>`; StarterKit's default
       // already matches, so no translation layer is needed.
-    }),
+      }),
 
     // Task lists. `nested: true` because GFM permits a task item to contain other tasks, and
     // MarkText's #4341 was exactly this case regressing.

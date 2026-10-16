@@ -1,7 +1,9 @@
 import { useMemo, useState } from 'react'
 import type { PanelId } from '@/App'
 import type { OutlineEntry } from '@features/outline/outline'
+import type { Backlink } from '@core/wiki'
 import { FileTree } from '@features/files/FileTree'
+import { Backlinks } from '@features/wiki/Backlinks'
 import { dirname } from '@shared/path'
 
 interface SidebarProps {
@@ -11,7 +13,9 @@ interface SidebarProps {
   source: string
   /** Path of the active document; the tree highlights it. */
   activePath: string | null
+  backlinks: readonly Backlink[]
   onOpenFile: (path: string) => void
+  onBacklinkOpen: (path: string, line: number) => void
   onClose: () => void
   onResizeStart: (e: React.PointerEvent) => void
   onResizeMove: (e: React.PointerEvent) => void
@@ -24,7 +28,9 @@ export function Sidebar({
   headings,
   source,
   activePath,
+  backlinks,
   onOpenFile,
+  onBacklinkOpen,
   onClose,
   onResizeStart,
   onResizeMove,
@@ -54,7 +60,17 @@ export function Sidebar({
       </header>
 
       <div className="min-h-0 flex-1 overflow-y-auto">
-        {kind === 'outline' && <OutlineList headings={headings} />}
+        {kind === 'outline' && (
+          <div className="flex flex-col gap-2">
+            <OutlineList headings={headings} />
+            <div className="border-t border-[var(--rule)] pt-2">
+              <p className="px-3 pb-1 text-[10.5px] font-semibold uppercase tracking-[0.08em]" style={{ color: 'var(--text-faint)' }}>
+                Backlinks
+              </p>
+              <Backlinks backlinks={backlinks} activePath={activePath} onOpen={onBacklinkOpen} />
+            </div>
+          </div>
+        )}
         {kind === 'search' && <SearchPanel source={source} />}
         {kind === 'files' && (
           <FileTree

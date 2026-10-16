@@ -176,6 +176,38 @@
   position: relative;
 }
 
+/* Wiki links -- `[[Note]]` renders with the display text rather than the brackets, and is
+   dotted because the target lives in the vault rather than on the web. A solid underline
+   reads as a hyperlink, which this is not. */
+.editor-surface .ProseMirror [data-type='wikilink'] {
+  color: var(--accent);
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 2px;
+  cursor: pointer;
+  border-radius: 3px;
+}
+.editor-surface .ProseMirror [data-type='wikilink']:hover {
+  background: var(--accent-wash);
+}
+.read-surface a[data-type='wikilink'] {
+  color: var(--accent);
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.read-surface a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.export-wikilink {
+  color: var(--accent);
+  text-decoration: underline;
+  text-decoration-style: dotted;
+}
+
 /* Valence shells - the gutter glyphs are SVG, so nothing to place here; this hook exists so
    the gutter has a stable class to be queried by. */
 .valence-shell-active {

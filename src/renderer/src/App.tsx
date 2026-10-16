@@ -17,6 +17,7 @@ import { blocksToHtml, htmlToBlocks } from '@core/htmlBridge'
 import { renderToHtml } from '@core/render'
 import { computeStats } from '@features/stats/stats'
 import { outlineOf } from '@features/outline/outline'
+import { buildBacklinks } from '@core/wiki'
 import { ExportDialog } from '@features/export/ExportDialog'
 import { Palette } from '@features/commands/Palette'
 import { COMMANDS } from '@features/commands/commands'
@@ -64,6 +65,21 @@ export function App() {
   const doc = activeDoc(session)
   const source = doc?.source ?? ''
   const headings = useMemo(() => outlineOf(source), [source])
+
+  // Workspace index for wiki links: every document in the session, with its source. Backlinks to
+  // the active note are derived from this, so an added or removed note is reflected live.
+  const wikiFiles = useMemo(() => session.documents
+    .filter((d) => !!d.path)
+    .map((d) => ({ path: d.path! })), [session.documents])
+  const wikiRead = useCallback(
+    (path: string) => session.documents.find((d) => d.path === path)?.source ?? null,
+    [session.documents],
+  )
+  const backlinks = useMemo(() => {
+    const p = doc?.path
+    if (!p) return []
+    return buildBacklinks(wikiFiles, wikiRead, p)
+  }, [wikiFiles, wikiRead, doc?.path])
 
   /**
    * Transient feedback for actions with no other visible result -- a save, an export, a
@@ -572,6 +588,7 @@ export function App() {
               headings={headings}
               source={source}
               activePath={doc?.path ?? null}
+              backlinks={backlinks}
               onOpenFile={(path) => {
                 void (async () => {
                   try {
@@ -584,6 +601,21 @@ export function App() {
                     })
                   } catch {
                     /* unreadable file: leave the session alone */
+                  }
+                })()
+              }}
+              onBacklinkOpen={(path, _line) => {
+                void (async () => {
+                  try {
+                    const text = await platform.fs.read(path)
+                    setSession((s) => {
+                      const existing = s.documents.find((d) => d.path === path)
+                      if (existing) return setActiveDoc(s, existing.id)
+                      return openDoc(s, fromPath(path, text))
+                    })
+                    setPanel('outline')
+                  } catch {
+                    /* unreadable: stay where we are */
                   }
                 })()
               }}
