@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { EditorContent, useEditor } from '@tiptap/react'
 import { createExtensions } from '@core/editor/extensions'
-import { dirname } from '@shared/path'
+import { dirname, joinPath } from '@shared/path'
 import { Rail } from '@ui/Rail'
 import { Sidebar } from '@ui/Sidebar'
 import { StatusBar } from '@ui/StatusBar'
@@ -17,7 +17,7 @@ import { blocksToHtml, htmlToBlocks } from '@core/htmlBridge'
 import { renderToHtml } from '@core/render'
 import { computeStats } from '@features/stats/stats'
 import { outlineOf } from '@features/outline/outline'
-import { buildBacklinks } from '@core/wiki'
+import { buildBacklinks, resolveWikiLink } from '@core/wiki'
 import { ExportDialog } from '@features/export/ExportDialog'
 import { Palette } from '@features/commands/Palette'
 import { COMMANDS } from '@features/commands/commands'
@@ -60,6 +60,8 @@ export function App() {
   const [readError, setReadError] = useState<string | null>(null)
   const [exportOpen, setExportOpen] = useState(false)
   const [paletteOpen, setPaletteOpen] = useState(false)
+
+  // Placeholder - filled below after editor creation.
   const [activeHeading, setActiveHeading] = useState('')
 
   const doc = activeDoc(session)
@@ -80,6 +82,62 @@ export function App() {
     if (!p) return []
     return buildBacklinks(wikiFiles, wikiRead, p)
   }, [wikiFiles, wikiRead, doc?.path])
+
+  const openWikiLink = useCallback(
+    (target: string) => {
+      // Work out which file this refers to before touching the session. A missing target
+      // becomes a new note in the open file's folder rather than being silently dropped —
+      // that is the affordance that stops linking from being a ceremony.
+      const active = activeDoc(session)
+      const base = active?.path ? dirname(active.path) : ''
+      const herePath = active?.path ?? null
+      const vaultFiles = wikiFiles
+      const resolution = resolveWikiLink(target, vaultFiles, herePath)
+
+      let path: string
+      switch (resolution.kind) {
+        case 'resolved':
+          path = resolution.path
+          break
+        case 'ambiguous':
+          // Pick shallowest rather than prompting — prompting in a typing moment is a
+          // decision the user already made when they wrote the link.
+          path = [...resolution.candidates].sort((a, b) => a.length - b.length)[0]!
+          break
+        case 'missing':
+        default:
+          path = joinPath(base, `${target}.md`)
+          break
+      }
+
+      void (async () => {
+        // Missing target: create the note first, so the click always lands somewhere.
+        if (resolution.kind === 'missing') {
+          try {
+            await platform.fs.write(path, `# ${target}\n\n`)
+          } catch {
+            return
+          }
+        }
+        try {
+          const text = await platform.fs.read(path)
+          setSession((s) => {
+            const existing = s.documents.find((d) => d.path === path)
+            if (existing) return setActiveDoc(s, existing.id)
+            return openDoc(s, fromPath(path, text))
+          })
+        } catch {
+          /* leave session alone */
+        }
+      })()
+    },
+    [session, wikiFiles, platform],
+  )
+
+  // Keep a stable ref so the ProseMirror handleClick set up at editor creation always
+  // invokes the current version without recreating the editor.
+  const followWikiPathRef = useRef<((target: string, heading?: string) => void) | null>(null)
+  followWikiPathRef.current = (target, _heading) => openWikiLink(target)
 
   /**
    * Transient feedback for actions with no other visible result -- a save, an export, a
@@ -170,6 +228,11 @@ export function App() {
     typewriter: settings?.typewriter ?? false,
   }
 
+  // Defined below; referenced through its setter. This forward declaration is the price of
+  // wiring a click handler onto the editor without recreating the editor when session changes.
+  // placeholder to satisfy ordering; set below
+  // done
+
   const editor = useEditor({
     extensions: createExtensions(
       {
@@ -203,6 +266,18 @@ export function App() {
     content: initialHtml,
     editorProps: {
       attributes: { class: 'editor-surface', spellcheck: 'true', 'data-placeholder': 'Start writing…' },
+      handleDOMEvents: {
+        click: (_view, event) => {
+          const el = (event.target as HTMLElement | null)?.closest('[data-type="wikilink"]')
+          if (!el) return false
+          const target = el.getAttribute('data-target')
+          if (!target) return false
+          event.preventDefault()
+          event.stopPropagation()
+          followWikiPathRef.current?.(target, el.getAttribute('data-heading') || undefined)
+          return true
+        },
+      },
     },
     onUpdate: ({ editor: e }) => {
       // The single conversion point: editor HTML -> block state -> markdown.

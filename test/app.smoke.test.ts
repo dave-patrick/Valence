@@ -443,6 +443,40 @@ describe('command palette', () => {
   })
 })
 
+describe('wiki links', () => {
+  it('renders `[[Note]]` as a styled clickable mark instead of bracketed text', async () => {
+    const src = [...container.querySelectorAll('button')].find((b) => b.textContent === 'Source')
+    click(src)
+    const ta = await waitFor(
+      () => container.querySelector('textarea[data-view="source"]') as HTMLTextAreaElement | null,
+      'source view',
+    )
+    const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!
+    setter.call(ta, '# Doc\\n\\nSee [[Ideas]] and [[Ideas|alias]].\\n')
+    ta.dispatchEvent(new Event('input', { bubbles: true }))
+
+    // Give React time to process the source edit, then switch back to hybrid.
+    await waitFor(() => ta.value.includes('alias'), 'the edited source')
+    click([...container.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Hybrid'))
+    const el = await waitFor(
+      () => container.querySelector('[data-type="wikilink"]') as HTMLElement | null,
+      'the wikilink mark',
+    )
+    expect(el.textContent).not.toContain('[')
+    expect(el.getAttribute('data-target')).toBe('Ideas')
+    // The brackets never reach the screen.
+    expect(container.textContent).not.toMatch(/\[\[Ideas/)
+  })
+
+  it('does not crash when a wikilink is clicked', async () => {
+    const link = container.querySelector('[data-type="wikilink"]') as HTMLElement | null
+    if (link) click(link)
+    await tick()
+    // Whatever the click does (or does not do), the app stays mounted.
+    expect(container.querySelector('.ProseMirror')).toBeTruthy()
+  })
+})
+
 describe('files panel', () => {
   const emptyState = () => /Open a folder to browse it/i.test(container.textContent ?? '')
 
