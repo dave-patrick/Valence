@@ -64,10 +64,16 @@ describe('renderToHtml without diagrams', () => {
 
 describe('renderToHtml with a diagram', () => {
   it('resolves without loading Mermaid', async () => {
-    // The whole point. If this hangs, the reader pane is blank.
-    const settled = await settlesWithin(renderToHtml(WITH_DIAGRAM), 5000)
+    // The whole point: if this hangs, the reader pane is blank.
+    //
+    // The budget is generous on purpose. What is being asserted is *independence from the
+    // diagram renderer*, not a speed — Shiki initialises a WASM grammar engine on first use,
+    // which on a loaded machine can take longer than any budget worth writing down. A tight
+    // number here would turn a slow machine into a red build that says nothing about the
+    // behaviour under test.
+    const settled = await settlesWithin(renderToHtml(WITH_DIAGRAM), 20000)
     expect(settled, 'renderToHtml must not wait on the diagram renderer').toBe(true)
-  }, 15000)
+  }, 40000)
 
   it('returns the prose with a placeholder where the diagram goes', async () => {
     const r = await renderToHtml(WITH_DIAGRAM)
