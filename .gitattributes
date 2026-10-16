@@ -1,2 +1,28 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# Source and config are text and belong in the repo with LF endings, regardless of the
+# checkout platform. Without this, Windows contributors see the whole tree churn on every
+# diff.
+*.ts    text eol=lf
+*.tsx   text eol=lf
+*.css   text eol=lf
+*.md    text eol=lf
+*.json  text eol=lf
+*.mjs   text eol=lf
+*.html  text eol=lf
+
+# Lockfile is generated but must be committed for reproducible installs.
+pnpm-lock.yaml text eol=lf -diff
+
+# Binary assets must never be line-ending converted.
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.webp  binary
+*.ico   binary
+*.woff  binary
+*.woff2 binary
+*.ttf   binary
+*.pdf   binary

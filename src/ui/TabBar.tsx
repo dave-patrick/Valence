@@ -1,0 +1,319 @@
+import { useEffect, useRef, useState } from 'react'
+import type { DocumentState, Session } from '@core/session'
+import { isDirty, tabLabel } from '@core/session'
+import type { TabBarPosition } from '@core/settings'
+
+interface TabBarProps {
+  session: Session
+  position: Exclude<TabBarPosition, 'hidden'>
+  onSelect: (id: string) => void
+  onClose: (id: string) => void
+}
+
+/**
+ * The tab bar.
+ *
+ * Two things this gets right that are easy to get wrong:
+ *
+ * - **Overflow scrolls horizontally** rather than collapsing tabs or wrapping. Wrapping a tab
+ *   bar changes the height of the area the editor occupies, which shifts the document as you
+ *   open files — the exact jitter people notice and cannot name.
+ * - **Close is a real button with a label**, not a bare glyph. The dirty dot replaces the
+ *   glyph while the tab is unsaved, and `title` always says what clicking does.
+ */
+export function TabBar({ session, position, onSelect, onClose }: TabBarProps) {
+  const stripRef = useRef<HTMLDivElement>(null)
+  const activeRef = useRef<HTMLButtonElement>(null)
+
+  // Keep the active tab in view when it changes, so switching from the keyboard or a
+  // restored session does not leave the tab off-screen. `scrollIntoView` is absent in some
+  // embedded webviews, so call it defensively.
+  useEffect(() => {
+    activeRef.current?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' })
+  }, [session.activeId])
+
+  if (!session.documents.length) return null
+
+  return (
+    <div
+      className="valence-tabs"
+      role="tablist"
+      aria-label="Open documents"
+      aria-orientation="horizontal"
+      data-position={position}
+    >
+      <div className="valence-tabs__strip" ref={stripRef}>
+        {session.documents.map((doc) => {
+          const selected = doc.id === session.activeId
+          const dirty = isDirty(doc)
+          return (
+            <div
+              key={doc.id}
+              className="valence-tab"
+              data-selected={selected}
+              data-dirty={dirty}
+            >
+              <button
+                ref={selected ? activeRef : undefined}
+                role="tab"
+                aria-selected={selected}
+                className="valence-tab__label"
+                onClick={() => onSelect(doc.id)}
+                title={doc.path ?? 'Unsaved document'}
+              >
+                <span className="valence-tab__title">{tabLabel(doc, session.documents)}</span>
+                <span className="valence-tab__dot" aria-hidden={!dirty} />
+              </button>
+              <button
+                className="valence-tab__close"
+                aria-label={dirty ? `Close ${doc.title}, unsaved changes` : `Close ${doc.title}`}
+                title={dirty ? 'Close (unsaved changes will be lost)' : 'Close'}
+                onClick={() => onClose(doc.id)}
+              >
+                <svg width="9" height="9" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+                  <path d="M2 2l8 8M10 2l-8 8" />
+                </svg>
+              </button>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+/** The settings dialog, which is where "configurable locations" actually lives. */
+interface SettingsPanelProps {
+  open: boolean
+  onClose: () => void
+  settings: React.ComponentProps<typeof SettingsFields>['settings']
+  onChange: (patch: Partial<React.ComponentProps<typeof SettingsFields>['settings']>) => void
+  onOpenFolder: () => void
+}
+
+export function SettingsPanel({
+  open,
+  onClose,
+  settings,
+  onChange,
+  onOpenFolder,
+}: SettingsPanelProps) {
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', onKey)
+    ref.current?.focus()
+    return () => document.removeEventListener('keydown', onKey)
+  }, [open, onClose])
+
+  if (!open) return null
+
+  return (
+    <>
+      <div className="valence-scrim" onClick={onClose} />
+      <div
+        className="valence-settings"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Settings"
+        ref={ref}
+        tabIndex={-1}
+      >
+        <header className="valence-settings__head">
+          <h2>Settings</h2>
+          <button className="valence-settings__close" onClick={onClose} aria-label="Close settings">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+              <path d="M2 2l8 8M10 2l-8 8" />
+            </svg>
+          </button>
+        </header>
+
+        <SettingsFields settings={settings} onChange={onChange} onOpenFolder={onOpenFolder} />
+      </div>
+    </>
+  )
+}
+
+function SettingsFields({
+  settings,
+  onChange,
+  onOpenFolder,
+}: {
+  settings: import('@core/settings').Settings
+  onChange: (patch: Partial<import('@core/settings').Settings>) => void
+  onOpenFolder: () => void
+}) {
+  return (
+    <div className="valence-settings__body">
+      <section>
+        <h3>Appearance</h3>
+        <Field label="Tab bar" hint="Where open documents are listed">
+          <Segmented
+            value={settings.tabBar}
+            onChange={(v) => onChange({ tabBar: v })}
+            options={[
+              { value: 'top', label: 'Top' },
+              { value: 'bottom', label: 'Bottom' },
+              { value: 'hidden', label: 'Hidden' },
+            ]}
+          />
+        </Field>
+        <Field label="Theme" hint="Follows the system by default">
+          <Segmented
+            value={settings.theme}
+            onChange={(v) => onChange({ theme: v })}
+            options={[
+              { value: 'system', label: 'System' },
+              { value: 'light', label: 'Light' },
+              { value: 'dark', label: 'Dark' },
+            ]}
+          />
+        </Field>
+      </section>
+
+      <section>
+        <h3>Writing</h3>
+        <Toggle
+          label="Typewriter mode"
+          hint="Pin the current line to the middle of the view"
+          on={settings.typewriter}
+          onChange={(v) => onChange({ typewriter: v })}
+        />
+        <Toggle
+          label="Focus mode"
+          hint="Dim every paragraph but the one you are writing"
+          on={settings.focusMode}
+          onChange={(v) => onChange({ focusMode: v })}
+        />
+        <Toggle
+          label="Line numbers"
+          hint="Show the line number beside each paragraph"
+          on={settings.showLineNumbers}
+          onChange={(v) => onChange({ showLineNumbers: v })}
+        />
+        <Field label="Daily word goal" hint="Shown as progress in the inspector">
+          <input
+            type="number"
+            min={0}
+            step={50}
+            className="valence-input"
+            value={settings.dailyWordGoal}
+            onChange={(e) => onChange({ dailyWordGoal: Number(e.target.value) || 0 })}
+          />
+        </Field>
+      </section>
+
+      <section>
+        <h3>Locations</h3>
+        <Field label="Default save folder" hint="Where Save As opens">
+          <div className="valence-input-row">
+            <input
+              className="valence-input"
+              readOnly
+              placeholder="Ask each time"
+              value={settings.defaultSaveDir}
+              onChange={(e) => onChange({ defaultSaveDir: e.target.value })}
+            />
+            <button className="valence-btn" onClick={onOpenFolder}>
+              Browse
+            </button>
+            {settings.defaultSaveDir && (
+              <button
+                className="valence-btn"
+                onClick={() => onChange({ defaultSaveDir: '' })}
+                title="Clear"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+        </Field>
+
+        <div className="valence-field">
+          <span className="valence-field__label">Recent folders</span>
+          {settings.recentFolders.length ? (
+            <ul className="valence-recents">
+              {settings.recentFolders.map((f) => (
+                <li key={f}>
+                  <span title={f}>{f}</span>
+                  <button
+                    className="valence-btn valence-btn--quiet"
+                    aria-label={`Remove ${f} from recent folders`}
+                    onClick={() =>
+                      onChange({ recentFolders: settings.recentFolders.filter((x) => x !== f) })
+                    }
+                  >
+                    Remove
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="valence-hint">None yet. Open a folder to add one.</p>
+          )}
+        </div>
+
+        <Toggle
+          label="Restore session on launch"
+          hint="Reopen the files you had open. Never restores unsaved changes."
+          on={settings.restoreSession}
+          onChange={(v) => onChange({ restoreSession: v })}
+        />
+      </section>
+    </div>
+  )
+}
+
+function Field({ label, hint, children }: { label: string; hint: string; children: React.ReactNode }) {
+  return (
+    <div className="valence-field">
+      <span className="valence-field__label">{label}</span>
+      {children}
+      <span className="valence-hint">{hint}</span>
+    </div>
+  )
+}
+
+function Toggle({ label, hint, on, onChange }: { label: string; hint: string; on: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <label className="valence-toggle">
+      <input type="checkbox" checked={on} onChange={(e) => onChange(e.target.checked)} />
+      <span>
+        <span className="valence-toggle__label">{label}</span>
+        <span className="valence-hint">{hint}</span>
+      </span>
+    </label>
+  )
+}
+
+function Segmented<T extends string>({
+  value,
+  onChange,
+  options,
+}: {
+  value: T
+  onChange: (v: T) => void
+  options: { value: T; label: string }[]
+}) {
+  return (
+    <div className="valence-segmented" role="group">
+      {options.map((o) => (
+        <button
+          key={o.value}
+          className="valence-segmented__btn"
+          aria-pressed={value === o.value}
+          style={value === o.value ? { background: 'var(--accent-soft)', color: 'var(--accent)' } : undefined}
+          onClick={() => onChange(o.value)}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+export type { DocumentState }

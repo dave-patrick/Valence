@@ -1,0 +1,30 @@
+# Build output
+out/
+dist/
+release/
+
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Editor / OS noise
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-error.log*
+
+# Local test artifacts
+coverage/
+.vitest/
+*.tsbuildinfo
+
+# Never commit real documents — this is a note-taking app, and your notes are yours.
+*.local.md

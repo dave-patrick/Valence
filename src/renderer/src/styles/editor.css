@@ -1,0 +1,953 @@
+/**
+ * Prose styling for the editing surface.
+ *
+ * Newsreader at 19px/1.65 on a 68-character measure — the typographic defaults from
+ * docs/02-architecture.md §2.3. Serif body copy gets extra leading; the measure is capped so
+ * the line length never drifts on wide monitors.
+ */
+
+.editor-surface {
+  font-family: var(--font-body);
+  font-size: var(--editor-size);
+  line-height: 1.65;
+  max-width: var(--editor-width);
+  margin: 0 auto;
+  padding: 3.5rem 2.5rem 40vh;
+  outline: none;
+  hyphens: auto;
+  -webkit-hyphens: auto;
+  text-rendering: optimizeLegibility;
+  color: var(--ink);
+}
+
+/* Headings tighten up as they grow — large type needs less leading. */
+.editor-surface h1,
+.editor-surface h2,
+.editor-surface h3,
+.editor-surface h4,
+.editor-surface h5,
+.editor-surface h6 {
+  font-family: var(--font-body);
+  font-weight: 600;
+  letter-spacing: -0.018em;
+  line-height: 1.22;
+  margin: 1.9em 0 0.55em;
+}
+.editor-surface > :first-child {
+  margin-top: 0;
+}
+.editor-surface h1 {
+  font-size: 2.05em;
+  letter-spacing: -0.028em;
+}
+.editor-surface h2 {
+  font-size: 1.5em;
+  padding-bottom: 0.22em;
+  border-bottom: 1px solid var(--rule);
+}
+.editor-surface h3 {
+  font-size: 1.2em;
+}
+.editor-surface h4 {
+  font-size: 1.02em;
+}
+.editor-surface h5,
+.editor-surface h6 {
+  font-size: 0.92em;
+  color: var(--ink-2);
+}
+
+.editor-surface p {
+  margin: 0 0 1.05em;
+}
+
+.editor-surface a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.18em;
+  transition: color 0.12s var(--ease-out);
+}
+.editor-surface a:hover {
+  color: var(--ink);
+}
+
+.editor-surface strong {
+  font-weight: 600;
+}
+
+.editor-surface blockquote {
+  margin: 1.4em 0;
+  padding: 0.1em 0 0.1em 1.1em;
+  border-left: 2px solid var(--accent);
+  color: var(--ink-2);
+  font-style: normal;
+}
+
+.editor-surface ul,
+.editor-surface ol {
+  margin: 0 0 1.05em;
+  padding-left: 1.5em;
+}
+.editor-surface li {
+  margin: 0.28em 0;
+}
+.editor-surface li > ul,
+.editor-surface li > ol {
+  margin: 0.28em 0;
+}
+.editor-surface ul[data-type='taskList'] {
+  list-style: none;
+  padding-left: 0.15em;
+}
+.editor-surface li[data-type='task'] {
+  display: flex;
+  gap: 0.6em;
+  align-items: baseline;
+}
+.editor-surface li[data-type='task'] > p {
+  margin: 0;
+}
+.editor-surface li[data-checked='true'] > p {
+  color: var(--ink-3);
+  text-decoration: line-through;
+  text-decoration-color: color-mix(in oklab, var(--ink-3) 50%, transparent);
+}
+
+.editor-surface hr {
+  border: none;
+  border-top: 1px solid var(--rule);
+  margin: 2.6em 0;
+}
+
+.editor-surface code {
+  font-family: var(--font-mono);
+  font-size: 0.82em;
+  background: var(--surface-2);
+  padding: 0.15em 0.38em;
+  border-radius: 3px;
+}
+
+.editor-surface pre {
+  background: var(--surface-2);
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  padding: 0.95rem 1.1rem;
+  margin: 1.3em 0;
+  overflow-x: auto;
+  font-size: 0.72em;
+  line-height: 1.55;
+  font-family: var(--font-mono);
+  tab-size: 2;
+}
+.editor-surface pre code {
+  background: none;
+  padding: 0;
+  font-size: 1em;
+}
+.editor-surface pre[data-lang]::before {
+  content: attr(data-lang);
+  display: block;
+  font-family: var(--font-body);
+  font-size: 0.82rem;
+  letter-spacing: 0.04em;
+  color: var(--ink-3);
+  margin-bottom: 0.7em;
+}
+
+/* Focus mode. Dims rather than hides: hiding makes the document jump as the caret moves
+   between paragraphs, which is the opposite of what focus mode is for.
+
+   Deliberately **no transition**. ProseMirror re-creates a decorated node on every
+   transaction, so a transition here restarts from the undimmed value on each keystroke and
+   reads as flicker rather than as easing. The dimming follows the caret, and anything
+   animated behind the eye just looks like lag. */
+.valence-dimmed {
+  opacity: 0.34;
+}
+
+.editor-surface .valence-dimmed:hover {
+  opacity: 0.72;
+}
+
+/* Typewriter mode marks the active line so the centring is legible as an intent rather than
+   looking like the document drifted. */
+.editor-surface[data-typewriter='true'] {
+  position: relative;
+}
+
+/* Valence shells - the gutter glyphs are SVG, so nothing to place here; this hook exists so
+   the gutter has a stable class to be queried by. */
+.valence-shell-active {
+  filter: drop-shadow(0 0 4px color-mix(in oklab, var(--accent) 45%, transparent));
+}
+ *
+ * Column resize handles are `::after` pseudo-elements on the cell's right edge: they cost
+ * no DOM, never enter the document, and cannot be selected or serialised. A real element
+ * would need the same `contenteditable=false` treatment as the syntax markers. */
+
+.editor-surface .tableWrapper {
+  position: relative;
+  margin: 1.3em 0;
+}
+
+.editor-surface table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 0.66em;
+  line-height: 1.5;
+  table-layout: fixed;
+}
+.editor-surface th,
+.editor-surface td {
+  border: 1px solid var(--rule);
+  padding: 0.5em 0.75em;
+  text-align: left;
+  vertical-align: top;
+  position: relative;
+}
+.editor-surface th {
+  background: var(--surface-2);
+  font-weight: 600;
+}
+.editor-surface tbody tr:hover {
+  background: color-mix(in oklab, var(--surface-2) 55%, transparent);
+}
+
+/* Selected cells (merge/split) */
+.editor-surface .selectedCell::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: color-mix(in oklab, var(--accent) 12%, transparent);
+  pointer-events: none;
+}
+
+/* Column and row handles TipTap's `resizable: true` renders. */
+.editor-surface .column-resize-handle {
+  position: absolute;
+  right: -2px;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: var(--accent);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.12s var(--ease-out);
+}
+.editor-surface .resize-cursor {
+  cursor: col-resize;
+}
+.editor-surface .tableWrapper:hover .column-resize-handle,
+.editor-surface .column-resize-handle[data-resizing] {
+  opacity: 0.55;
+}
+
+/* Floating table toolbar. */
+.valence-table-toolbar {
+  position: absolute;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 8px;
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  box-shadow: 0 6px 20px rgb(0 0 0 / 0.14);
+  animation: valence-rise 0.12s var(--ease-out);
+}
+
+@keyframes valence-rise {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.valence-table-toolbar__group {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  padding-right: 3px;
+  margin-right: 2px;
+  border-right: 1px solid var(--rule);
+}
+.valence-table-toolbar__group--last {
+  border-right: none;
+  margin-right: 0;
+  padding-right: 0;
+  position: relative;
+}
+
+.valence-table-toolbar__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 26px;
+  height: 26px;
+  padding: 0 6px;
+  border-radius: 5px;
+  font-family: var(--font-body);
+  font-size: 11px;
+  line-height: 1;
+  color: var(--ink-2);
+  transition:
+    background-color 0.1s var(--ease-out),
+    color 0.1s var(--ease-out);
+}
+.valence-table-toolbar__btn:hover {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+/* ── Tab bar ──────────────────────────────────────────────────
+ *
+ * Overflow scrolls horizontally rather than wrapping: wrapping changes the bar's height,
+ * which shifts the document as files open. That jitter is the kind of thing people notice
+ * and cannot name. */
+
+.valence-tabs {
+  flex-shrink: 0;
+  background: var(--surface);
+  border-bottom: 1px solid var(--rule);
+  order: -1;
+}
+.valence-tabs[data-position='bottom'] {
+  border-bottom: none;
+  border-top: 1px solid var(--rule);
+  order: 1;
+}
+
+.valence-tabs__strip {
+  display: flex;
+  align-items: stretch;
+  gap: 1px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+.valence-tabs__strip::-webkit-scrollbar {
+  height: 0;
+}
+
+.valence-tab {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  max-width: 220px;
+  border-right: 1px solid var(--rule);
+  background: transparent;
+  transition: background-color 0.12s var(--ease-out);
+}
+.valence-tab:hover {
+  background: var(--surface-2);
+}
+.valence-tab[data-selected='true'] {
+  background: var(--bg);
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+.valence-tabs[data-position='bottom'] .valence-tab[data-selected='true'] {
+  box-shadow: inset 0 2px 0 var(--accent);
+}
+
+.valence-tab__label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 0 4px 0 12px;
+  height: 34px;
+  font-size: 12.5px;
+  color: var(--ink-2);
+}
+
+.valence-tab__title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Unsaved marker. Hidden on clean tabs, so the dot appearing *means* something. */
+.valence-tab__dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: transparent;
+}
+.valence-tab[data-dirty='true'] .valence-tab__dot {
+  background: var(--accent);
+}
+
+.valence-tab__close {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  margin-right: 6px;
+  border-radius: 4px;
+  color: var(--ink-3);
+  opacity: 0;
+  transition:
+    opacity 0.12s var(--ease-out),
+    background-color 0.12s var(--ease-out);
+}
+.valence-tab:hover .valence-tab__close,
+.valence-tab[data-selected='true'] .valence-tab__close {
+  opacity: 1;
+}
+.valence-tab__close:hover {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+/* ── Settings ─────────────────────────────────────────────── */
+
+.valence-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: rgb(0 0 0 / 0.32);
+  animation: valence-fade 0.12s var(--ease-out);
+}
+
+@keyframes valence-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.valence-settings {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 50;
+  width: min(520px, calc(100vw - 2rem));
+  max-height: min(80vh, 720px);
+  display: flex;
+  flex-direction: column;
+  border-radius: 10px;
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  box-shadow: 0 24px 64px rgb(0 0 0 / 0.28);
+  animation: valence-rise 0.14s var(--ease-out);
+}
+
+.valence-settings__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--rule);
+}
+.valence-settings__head h2 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.valence-settings__close {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 5px;
+  color: var(--ink-3);
+}
+.valence-settings__close:hover {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+.valence-settings__body {
+  overflow-y: auto;
+  padding: 6px 18px 20px;
+}
+
+.valence-settings__body section {
+  padding: 14px 0;
+  border-bottom: 1px solid var(--rule);
+}
+.valence-settings__body section:last-child {
+  border-bottom: none;
+}
+.valence-settings__body h3 {
+  margin: 0 0 12px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.valence-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-bottom: 14px;
+}
+.valence-field__label {
+  font-size: 12.5px;
+  color: var(--ink);
+}
+
+.valence-hint {
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--ink-3);
+}
+
+.valence-toggle {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin-bottom: 13px;
+  cursor: pointer;
+}
+.valence-toggle input {
+  margin-top: 2px;
+  accent-color: var(--accent);
+  width: 14px;
+  height: 14px;
+}
+.valence-toggle__label {
+  display: block;
+  font-size: 12.5px;
+  color: var(--ink);
+}
+
+.valence-input {
+  width: 100%;
+  padding: 6px 9px;
+  font-family: var(--font-body);
+  font-size: 12.5px;
+  color: var(--ink);
+  background: var(--surface-2);
+  border: 1px solid var(--rule);
+  border-radius: 5px;
+}
+.valence-input-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.valence-btn {
+  padding: 6px 10px;
+  font-size: 12px;
+  color: var(--ink-2);
+  background: var(--surface-2);
+  border: 1px solid var(--rule);
+  border-radius: 5px;
+  white-space: nowrap;
+  transition:
+    color 0.12s var(--ease-out),
+    border-color 0.12s var(--ease-out);
+}
+.valence-btn:hover {
+  color: var(--ink);
+  border-color: var(--ink-3);
+}
+.valence-btn--quiet {
+  background: none;
+  border-color: transparent;
+  color: var(--ink-3);
+}
+
+.valence-segmented {
+  display: inline-flex;
+  padding: 2px;
+  gap: 2px;
+  background: var(--surface-2);
+  border-radius: 6px;
+}
+.valence-segmented__btn {
+  padding: 4px 11px;
+  font-size: 12px;
+  border-radius: 4px;
+  color: var(--ink-2);
+  transition:
+    background-color 0.12s var(--ease-out),
+    color 0.12s var(--ease-out);
+}
+.valence-segmented__btn:hover {
+  color: var(--ink);
+}
+
+.valence-recents {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.valence-recents li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 4px 7px;
+  border-radius: 5px;
+  background: var(--surface-2);
+}
+.valence-recents span {
+  font-size: 11.5px;
+  color: var(--ink-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  direction: rtl;
+  text-align: left;
+}
+
+/* Column drag-to-reorder. The drop indicator is a ProseMirror widget decoration, so it is
+   inert - never selected, never serialised, never part of undo. */
+.valence-column-drop {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -1px;
+  width: 2px;
+  background: var(--accent);
+  pointer-events: none;
+  z-index: 2;
+}
+
+.editor-surface table.is-reordering {
+  cursor: grabbing;
+}
+.editor-surface table.is-reordering th {
+  /* Make the source of the drag obvious without moving anything. */
+  background: var(--accent-soft);
+}
+.editor-surface th {
+  cursor: grab;
+}
+.editor-surface th:active {
+  cursor: grabbing;
+}
+
+/* Chessboard picker. */
+.valence-chessboard {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 30;
+  display: grid;
+  grid-template-columns: repeat(8, 14px);
+  gap: 2px;
+  padding: 6px 6px 4px;
+  border-radius: 8px;
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  box-shadow: 0 10px 28px rgb(0 0 0 / 0.18);
+  animation: valence-rise 0.12s var(--ease-out);
+}
+
+.valence-chessboard__cell {
+  width: 14px;
+  height: 14px;
+  border-radius: 2px;
+  background: var(--surface-2);
+  transition: background-color 0.08s linear;
+}
+.valence-chessboard__cell:hover,
+.valence-chessboard__cell:focus-visible {
+  background: var(--accent);
+  outline: none;
+}
+
+.valence-chessboard__readout {
+  grid-column: 1 / -1;
+  padding-top: 4px;
+  text-align: center;
+  font-family: var(--font-body);
+  font-size: 10px;
+  color: var(--ink-3);
+}
+
+.editor-surface img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 4px;
+}
+.editor-surface img.ProseMirror-selectednode {
+  outline: 2px solid var(--accent);
+}
+
+.editor-surface [data-type='math-inline'] {
+  font-family: var(--font-body);
+  font-style: italic;
+}
+/* Atomic rendered nodes — math and diagrams.
+ *
+ * The rendered output is inert (`contenteditable=false` via the NodeView's `contentDOM:
+ * null`), and the textarea is the only editable surface. That is what keeps the caret out
+ * of KaTeX's and Mermaid's generated DOM. */
+
+.valence-atomic {
+  position: relative;
+  margin: 1.3em 0;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  transition: border-color 0.12s var(--ease-out);
+}
+.valence-atomic.is-selected {
+  border-color: var(--accent);
+}
+
+.valence-atomic__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1em;
+  padding: 0.3em 0.1em;
+  opacity: 0;
+  transition: opacity 0.12s var(--ease-out);
+}
+.valence-atomic:hover .valence-atomic__bar,
+.valence-atomic.is-selected .valence-atomic__bar {
+  opacity: 1;
+}
+
+.valence-atomic__label {
+  font-family: var(--font-body);
+  font-size: 0.7rem;
+  color: var(--ink-3);
+}
+
+.valence-atomic__action {
+  font-family: var(--font-body);
+  font-size: 0.7rem;
+  color: var(--ink-3);
+  padding: 0.15em 0.5em;
+  border-radius: 4px;
+  transition:
+    color 0.12s var(--ease-out),
+    background-color 0.12s var(--ease-out);
+}
+.valence-atomic__action:hover {
+  color: var(--ink);
+  background: var(--surface-2);
+}
+
+.valence-atomic__output {
+  padding: 0.55em 0.75em;
+  overflow-x: auto;
+}
+
+/* A diagram must never blow out the 68-character measure, whatever Mermaid measured.
+   `!important` is deliberate: Mermaid writes an inline `max-width` in px, and when its
+   measurement returns zero it writes its nominal 400000px fallback instead. */
+.valence-atomic__output svg {
+  max-width: 100% !important;
+  height: auto;
+  display: block;
+}
+
+.valence-diagram-error {
+  margin-top: 0.5em;
+  font-family: var(--font-body);
+  font-size: 0.72rem;
+  color: var(--accent);
+  opacity: 0.85;
+}
+.valence-atomic__output.is-empty {
+  font-family: var(--font-body);
+  font-size: 0.8rem;
+  color: var(--ink-3);
+}
+
+/* A diagram that failed to parse shows its source, because the author is usually
+   mid-way through writing it. */
+.valence-atomic__output.is-error {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--accent);
+  background: var(--surface-2);
+  border-radius: 4px;
+  white-space: pre-wrap;
+}
+
+.valence-atomic__source {
+  display: none;
+  width: 100%;
+  min-height: 3.5em;
+  padding: 0.6em 0.75em;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: var(--ink);
+  background: var(--surface-2);
+  border: 1px solid var(--rule);
+  border-radius: 5px;
+  resize: vertical;
+  tab-size: 2;
+}
+
+.editor-surface [data-type='math-block'],
+.editor-surface [data-type='diagram'] {
+  margin: 1.3em 0;
+  padding: 1rem;
+  border: 1px dashed var(--rule);
+  border-radius: 6px;
+  font-family: var(--font-mono);
+  font-size: 0.72em;
+  white-space: pre-wrap;
+  color: var(--ink-2);
+  background: var(--surface-2);
+}
+
+/* Selection and caret. The caret is brass so the writing position is unmistakable. */
+.editor-surface ::selection {
+  background: color-mix(in oklab, var(--accent) 24%, transparent);
+}
+.editor-surface .ProseMirror-focused {
+  caret-color: var(--accent);
+}
+
+.editor-surface p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  color: var(--ink-3);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+
+/* Source mode. Not a separate editor — the same document, markers shown. */
+.editor-surface[data-view='source'] {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  line-height: 1.62;
+  max-width: 46rem;
+}
+.editor-surface[data-view='source'] h1,
+.editor-surface[data-view='source'] h2,
+.editor-surface[data-view='source'] h3 {
+  font-family: var(--font-mono);
+  letter-spacing: 0;
+}
+.editor-surface[data-view='source'] pre {
+  border-style: solid;
+  white-space: pre;
+}
+
+/* Split mode puts the read pipeline beside the editor. */
+.split-pane {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  min-height: 0;
+  flex: 1;
+}
+.split-pane > * {
+  min-width: 0;
+  overflow-y: auto;
+}
+.split-pane > :first-child {
+  border-right: 1px solid var(--rule);
+}
+
+.read-surface {
+  font-family: var(--font-body);
+  font-size: 18px;
+  line-height: 1.62;
+  max-width: var(--editor-width);
+  margin: 0 auto;
+  padding: 3.5rem 2.5rem 40vh;
+}
+.read-surface h1,
+.read-surface h2,
+.read-surface h3,
+.read-surface h4 {
+  font-family: var(--font-body);
+  font-weight: 600;
+  letter-spacing: -0.018em;
+  line-height: 1.22;
+}
+.read-surface .shiki {
+  border-radius: 6px;
+  border: 1px solid var(--rule);
+  margin: 1.3em 0;
+  overflow: hidden;
+}
+.read-surface .valence-diagram {
+  margin: 1.6em 0;
+  text-align: center;
+}
+.read-surface .valence-math {
+  margin: 1.4em 0;
+  overflow-x: auto;
+}
+.read-surface img {
+  max-width: 100%;
+  border-radius: 4px;
+}
+.read-surface table {
+  border-collapse: collapse;
+  width: 100%;
+  font-family: var(--font-body);
+  font-size: 0.7em;
+}
+.read-surface th,
+.read-surface td {
+  border: 1px solid var(--rule);
+  padding: 0.5em 0.75em;
+}
+.read-surface blockquote {
+  margin: 1.4em 0;
+  padding-left: 1.1em;
+  border-left: 2px solid var(--accent);
+  color: var(--ink-2);
+}
+
+/* Hidden syntax markers — the defining behaviour of this editor.
+ *
+ * These are `contenteditable=false` widget decorations supplied by src/core/editor/markers.ts.
+ * They exist only while the caret is in their block; they are never in the document, so they
+ * can never be saved, undone, or selected. */
+
+.valence-marker {
+  font-family: var(--font-mono);
+  font-size: 0.82em;
+  color: var(--ink-3);
+  opacity: 0.62;
+  user-select: none;
+  pointer-events: none;
+  white-space: pre;
+  vertical-align: baseline;
+}
+
+/* Payloads — the `(href)` of a link, the `(src)` of an image — are wordy and would shout.
+   Let them recede further than the brackets around them. */
+.valence-marker--payload {
+  opacity: 0.5;
+}
+
+/* Inside a marker run the text is being edited as source, so it should read as code. */
+.editor-surface .valence-marker + * {
+  font-family: var(--font-body);
+}
+
+/* Source mode shows everything, so markers are redundant there. */
+.editor-surface[data-view='source'] .valence-marker {
+  display: none;
+}
+
+/* Read pipeline. The Shiki output is wrapped in `.valence-code` by the render pipeline. */
+.read-surface {
+  cursor: default;
+  user-select: text;
+}

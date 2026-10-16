@@ -1,0 +1,215 @@
+/**
+ * Valence design tokens.
+ *
+ * These are the **house tokens**, shared with Quantos, yomu and the other Atomic 22 apps:
+ * the brand's dark charcoal, off-white and blue (Quantos `DESIGN.md` and `site/style.css`).
+ * Valence is deliberately not a separate visual language -- a folder of your apps should look
+ * like one family.
+ *
+ * Names and values mirror Quantos exactly so a change made here propagates identically. The
+ * aliases at the bottom (`--ink`, `--surface`, `--measure`, ...) are Valence's own vocabulary,
+ * mapped onto the house tokens so component CSS reads in local terms.
+ *
+ * Tokens are declared in a plain `:root` block rather than Tailwind's `@theme` on purpose.
+ * Tailwind v4 emits a theme variable only when a generated utility references it, and this
+ * stylesheet reads tokens through raw `var()`, which does not count as a reference. Declaring
+ * them solely in `@theme` tree-shook the entire palette out of the build.
+ */
+
+@import 'tailwindcss';
+
+@theme {
+  --color-bg: #0c131d;
+  --color-panel: #111d2b;
+  --color-ink: #edf2fa;
+  --color-accent: #78b6ff;
+}
+
+@layer theme {
+  :root {
+    --font-body: 'Source Sans 3', 'Segoe UI', system-ui, sans-serif;
+    --font-mono: 'IBM Plex Mono', 'Cascadia Mono', Consolas, monospace;
+    --font-display: 'Chakra Petch', 'Source Sans 3', sans-serif;
+
+    /* Surfaces, darkest to lightest. */
+    --bg: #0c131d;
+    --bg-raised: #101824;
+    --bg-panel: #111d2b;
+    --bg-hover: #17263b;
+    --bg-active: #1c2e42;
+    --bg-select: #254a70;
+    --bg-input: #0e1621;
+
+    /* Rules. */
+    --line: #2c394a;
+    --line-strong: #334258;
+    --line-focus: #78b6ff;
+
+    /* Text. */
+    --text: #edf2fa;
+    --text-soft: #c5d0df;
+    --text-muted: #9fb0c6;
+    --text-faint: #6f819a;
+
+    /* Accent. */
+    --accent: #78b6ff;
+    --accent-strong: #a3ccff;
+    --accent-ink: #091321;
+    --accent-wash: #142338;
+
+    /* Status. */
+    --danger: #ff8a8a;
+    --danger-wash: #3a1c22;
+    --warn: #f4c46a;
+    --warn-wash: #33291a;
+    --ok: #7fd8a6;
+    --ok-wash: #16302a;
+
+    --p1: #ff7b7b;
+    --p2: #f4b35e;
+    --p3: #78b6ff;
+    --p4: #7d8ea6;
+
+    /* Shape, motion, and metrics — also Quantos's. */
+    --radius: 7px;
+    --radius-sm: 4px;
+    --shadow: 0 12px 36px rgb(0 0 0 / 0.45);
+    --focus-ring: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent);
+    --sidebar-w: 248px;
+    --rightbar-w: 296px;
+    --statusbar-h: 26px;
+    --tab-h: 34px;
+    --editor-size: 17px;
+    --editor-width: 760px;
+    --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+
+    /* Valence's own aliases, so component CSS reads in local vocabulary. */
+    --surface: var(--bg-raised);
+    --surface-2: var(--bg-panel);
+    --ink: var(--text);
+    --ink-2: var(--text-soft);
+    --ink-3: var(--text-muted);
+    --rule: var(--line);
+    --accent-soft: var(--accent-wash);
+    --sage: var(--ok);
+    --rail: 48px;
+    --status: var(--statusbar-h);
+    --ease-out: var(--ease);
+    --font-sans: var(--font-body);
+    --font-serif: var(--font-body);
+    --font-mono-ui: var(--font-mono);
+    --measure: var(--editor-width);
+
+    color-scheme: dark;
+  }
+
+  :root[data-theme='light'] {
+    --bg: #f5f7fb;
+    --bg-raised: #ffffff;
+    --bg-panel: #eef2f8;
+    --bg-hover: #e4eaf3;
+    --bg-active: #d9e4f2;
+    --bg-select: #bcd6f5;
+    --bg-input: #ffffff;
+
+    --line: #d6dde8;
+    --line-strong: #c3cddc;
+    --text: #0c131d;
+    --text-soft: #26364a;
+    --text-muted: #4f6078;
+    --text-faint: #7d8ba0;
+
+    --accent: #1f6fd1;
+    --accent-strong: #1559ad;
+    --accent-ink: #ffffff;
+    --accent-wash: #e3eefc;
+
+    --danger: #c43a3a;
+    --danger-wash: #fbe7e7;
+    --warn: #9a6a00;
+    --warn-wash: #fbf1dc;
+    --ok: #1f8a55;
+    --ok-wash: #e2f5eb;
+
+    --shadow: 0 12px 32px rgb(12 19 29 / 0.16);
+
+    color-scheme: light;
+  }
+}
+
+@layer base {
+  * {
+    border-color: var(--line);
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+    margin: 0;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-body);
+    font-size: 14px;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* The house focus ring: a gap in the background colour, then the accent. */
+  :focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+    border-radius: var(--radius-sm);
+  }
+
+  ::selection {
+    background: var(--bg-select);
+    color: var(--text);
+  }
+
+  button {
+    font: inherit;
+    color: inherit;
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+  }
+
+  ::-webkit-scrollbar {
+    width: 11px;
+    height: 11px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: color-mix(in oklab, var(--text-muted) 40%, transparent);
+    border: 3px solid transparent;
+    border-radius: 99px;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: color-mix(in oklab, var(--text-muted) 65%, transparent);
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
+
+@layer utilities {
+  .tnum {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
