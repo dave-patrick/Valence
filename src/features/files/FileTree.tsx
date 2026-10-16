@@ -15,6 +15,8 @@ interface FileTreeProps {
   /** Path of the active document, highlighted in the tree. */
   activePath: string | null
   onOpen: (path: string) => void
+  /** Called when the user asks to pick a workspace folder. */
+  onWorkspaceOpen?: () => void
   onError: (message: string) => void
 }
 
@@ -25,7 +27,7 @@ interface FileTreeProps {
  * listing flat matches — you keep the folder structure while you type, which is how you
  * reason about where a note lives.
  */
-export function FileTree({ root, activePath, onOpen, onError }: FileTreeProps) {
+export function FileTree({ root, activePath, onOpen, onWorkspaceOpen, onError }: FileTreeProps) {
   const [tree, setTree] = useState<TreeNode[]>([])
   const [openDirs, setOpenDirs] = useState<Set<string>>(new Set())
   const [query, setQuery] = useState('')
@@ -38,7 +40,18 @@ export function FileTree({ root, activePath, onOpen, onError }: FileTreeProps) {
     }
     setLoading(true)
     try {
-      const entries = await getPlatform().fs.listDir(root)
+      // scanVault recurses correctly on the Electron platform, where listDir is shallow.
+      // On the web fallback, listDir already returns everything, and scanVault's against-
+      // the-root filter keeps only matching entries.
+      const { scanVault } = await import('../workspace/scan')
+      const files = await scanVault(root, (dir) =>
+        getPlatform().fs.listDir(dir).then((xs) =>
+          xs.map((e) => ({ path: e.path, isDirectory: e.isDirectory })),
+        ),
+      )
+      // buildTree wants directory entries, but scanVault already collapsed those into paths.
+      // Re-derive them: parent dirs of every file become implicit structure.
+      const entries = files.map((f) => ({ path: f.path, isDirectory: false }))
       setTree(buildTree(root, entries))
     } catch {
       onError(`Could not read ${root}`)
@@ -77,8 +90,16 @@ export function FileTree({ root, activePath, onOpen, onError }: FileTreeProps) {
   if (!root) {
     return (
       <div className="px-4 py-6 text-[12.5px] leading-relaxed" style={{ color: 'var(--ink-3)' }}>
-        Open a folder to browse it. Nothing is uploaded - Valence reads and writes your disk
-        directly.
+        No folder open — pick one to browse its notes, or open a single file.
+        {onWorkspaceOpen && (
+          <button
+            className="mt-3 block rounded-[var(--radius-sm)] px-3 py-1.5 text-[12px]"
+            style={{ background: 'var(--bg-active)', color: 'var(--ink)' }}
+            onClick={onWorkspaceOpen}
+          >
+            Open workspace …
+          </button>
+        )}
       </div>
     )
   }

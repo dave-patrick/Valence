@@ -478,8 +478,7 @@ describe('wiki links', () => {
 })
 
 describe('files panel', () => {
-  const emptyState = () => /Open a folder to browse it/i.test(container.textContent ?? '')
-
+  const emptyState = () => /No folder open/i.test(container.textContent ?? '')
   it('opens with an explained empty state and closes again', async () => {
     // Self-contained on purpose: this asserts the whole open/close cycle, so it must not
     // depend on which panel the previous test happened to leave open.

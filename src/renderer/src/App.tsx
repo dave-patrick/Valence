@@ -18,6 +18,7 @@ import { renderToHtml } from '@core/render'
 import { computeStats } from '@features/stats/stats'
 import { outlineOf } from '@features/outline/outline'
 import { buildBacklinks, resolveWikiLink } from '@core/wiki'
+import { useWorkspace } from '@features/workspace'
 import { ExportDialog } from '@features/export/ExportDialog'
 import { Palette } from '@features/commands/Palette'
 import { COMMANDS } from '@features/commands/commands'
@@ -76,14 +77,21 @@ export function App() {
   const source = doc?.source ?? ''
   const headings = useMemo(() => outlineOf(source), [source])
 
+  const workspace = useWorkspace(settings?.workspaceRoot ?? '')
+
   // Workspace index for wiki links: every document in the session, with its source. Backlinks to
   // the active note are derived from this, so an added or removed note is reflected live.
-  const wikiFiles = useMemo(() => session.documents
-    .filter((d) => !!d.path)
-    .map((d) => ({ path: d.path! })), [session.documents])
+  const wikiFiles = useMemo(() => {
+    if (workspace.vault.length) return workspace.vault
+    return session.documents.filter((d) => !!d.path).map((d) => ({ path: d.path! }))
+  }, [workspace.vault, session.documents])
   const wikiRead = useCallback(
-    (path: string) => session.documents.find((d) => d.path === path)?.source ?? null,
-    [session.documents],
+    (path: string) => {
+      const open = session.documents.find((d) => d.path === path)
+      if (open) return open.source
+      return workspace.vault.some((f) => f.path === path) ? '' : null
+    },
+    [workspace.vault, session.documents],
   )
   const backlinks = useMemo(() => {
     const p = doc?.path
@@ -432,6 +440,18 @@ export function App() {
     }
   }, [platform, settings])
 
+  const openWorkspace = useCallback(async () => {
+    const result = await platform.dialog.openFolder()
+    const folder = result.folder ?? result.paths[0]
+    if (!folder || !settings) return
+    const next: Settings = {
+      ...settings,
+      workspaceRoot: folder,
+      recentWorkspaces: [folder, ...settings.recentWorkspaces.filter((f) => f !== folder)].slice(0, 8),
+    }
+    patchSettings({ workspaceRoot: folder, recentWorkspaces: next.recentWorkspaces })
+  }, [platform, settings, patchSettings])
+
   const save = useCallback(async () => {
     const current = activeDoc(session)
     if (!current) return
@@ -568,6 +588,8 @@ export function App() {
       switch (id) {
         case 'file.open':
           return void openFile()
+        case 'file.openWorkspace':
+          return void openWorkspace()
         case 'file.save':
           return void save()
         case 'file.saveAll':
@@ -629,6 +651,7 @@ export function App() {
     },
     [
       openFile,
+      openWorkspace,
       save,
       saveAll,
       newDoc,
@@ -665,6 +688,7 @@ export function App() {
 
       // Everything else is a named command, so a shortcut and the palette entry for the same
       // action cannot drift apart.
+      if (mod && e.shiftKey && e.key === 'O') return runCommand('file.openWorkspace')
       if (mod && e.shiftKey && e.key === 'S') return runCommand('file.saveAll')
       if (mod && e.shiftKey && e.key === 'N') return runCommand('file.new')
       if (mod && e.key === 's') return runCommand('file.save')
@@ -739,6 +763,8 @@ export function App() {
               source={source}
               activePath={doc?.path ?? null}
               backlinks={backlinks}
+              workspaceRoot={workspace.root}
+              onWorkspaceOpen={openWorkspace}
               onOpenFile={(path) => {
                 void (async () => {
                   try {

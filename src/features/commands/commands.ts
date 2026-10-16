@@ -172,6 +172,7 @@ export const COMMANDS: readonly CommandDef[] = [
   // File
   { id: 'file.new', title: 'New document', group: 'File', keys: 'Ctrl N' },
   { id: 'file.open', title: 'Open file', group: 'File', keys: 'Ctrl O' },
+  { id: 'file.openWorkspace', title: 'Open workspace', group: 'File', keywords: 'vault folder project', keys: 'Ctrl Shift O' },
   { id: 'file.save', title: 'Save', group: 'File', keys: 'Ctrl S' },
   { id: 'file.saveAll', title: 'Save all', group: 'File', keys: 'Ctrl Shift S' },
   { id: 'file.export', title: 'Export', group: 'File', keys: 'Ctrl E', keywords: 'pdf word docx epub latex html' },

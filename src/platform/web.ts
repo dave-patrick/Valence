@@ -105,7 +105,10 @@ export function createWebPlatform(): Platform {
         return await pickFromDisk(store)
       },
       async openFolder() {
-        return { paths: [] }
+        // The browser fallback cannot read the OS filesystem. A prompt lets the dev server
+        // exercise a vault's shape by naming a root, and otherwise the entry is ignored.
+        const raw = prompt('Workspace root path (electron build only; use /notes)')
+        return { paths: raw ? [raw] : [], folder: raw ?? undefined } as OpenFileResult
       },
       async save(suggestedName) {
         const name = prompt('Save as', suggestedName)

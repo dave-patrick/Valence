@@ -14,7 +14,9 @@ interface SidebarProps {
   /** Path of the active document; the tree highlights it. */
   activePath: string | null
   backlinks: readonly Backlink[]
+  workspaceRoot: string
   onOpenFile: (path: string) => void
+  onWorkspaceOpen: () => void
   onBacklinkOpen: (path: string, line: number) => void
   onClose: () => void
   onResizeStart: (e: React.PointerEvent) => void
@@ -29,7 +31,9 @@ export function Sidebar({
   source,
   activePath,
   backlinks,
+  workspaceRoot,
   onOpenFile,
+  onWorkspaceOpen,
   onBacklinkOpen,
   onClose,
   onResizeStart,
@@ -74,9 +78,10 @@ export function Sidebar({
         {kind === 'search' && <SearchPanel source={source} />}
         {kind === 'files' && (
           <FileTree
-            root={activePath ? dirname(activePath) : null}
+            root={workspaceRoot || (activePath ? dirname(activePath) : null)}
             activePath={activePath}
             onOpen={onOpenFile}
+            onWorkspaceOpen={onWorkspaceOpen}
             onError={() => undefined}
           />
         )}
