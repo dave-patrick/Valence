@@ -4,6 +4,7 @@ import type { OutlineEntry } from '@features/outline/outline'
 import type { Backlink } from '@core/wiki'
 import { FileTree } from '@features/files/FileTree'
 import { FileList } from '@features/files/FileList'
+import { WorkspaceSearch } from '@features/search/WorkspaceSearch'
 import { Backlinks } from '@features/wiki/Backlinks'
 import { dirname } from '@shared/path'
 
@@ -76,7 +77,11 @@ export function Sidebar({
             </div>
           </div>
         )}
-        {kind === 'search' && <SearchPanel source={source} />}
+        {kind === 'search' && workspaceRoot ? (
+          <WorkspaceSearch workspaceRoot={workspaceRoot} onOpen={(p: string, _l?: number) => onOpenFile(p)} />
+        ) : kind === 'search' ? (
+          <SearchPanel source={source} />
+        ) : null}
 
         {kind === 'files' && (
           <FilesPanel
