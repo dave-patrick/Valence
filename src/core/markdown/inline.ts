@@ -93,6 +93,25 @@ export function renderInline(inlineToken: Token, md: MarkdownIt): InlineSpan[] {
         spans.push({ text: child.content, marks: [...marks, { type: 'code' }] })
         continue
 
+      case 'wikilink': {
+        // The span text is the display text; the target travels on the mark, so serialising
+        // back to `[[target|alias]]` does not depend on re-parsing what the user sees.
+        const alias = attr(child, 'alias')
+        spans.push({
+          text: child.content,
+          marks: [
+            ...marks,
+            {
+              type: 'wikilink',
+              target: attr(child, 'target') ?? child.content,
+              alias,
+              heading: attr(child, 'heading'),
+            },
+          ],
+        })
+        continue
+      }
+
       case 'math_inline':
         spans.push({ text: child.content, marks: [...marks, { type: 'math', display: false }] })
         continue
@@ -149,5 +168,8 @@ function sameMark(a: InlineMark, b: InlineMark): boolean {
   if (a.type !== b.type) return false
   if (a.type === 'link') return a.href === (b as typeof a).href
   if (a.type === 'image') return a.src === (b as typeof a).src
+  // Two adjacent links are only the same link if the target matches. Without this,
+  // `[[One]][[Two]]` merges into one span and saving rewrites the first link's target.
+  if (a.type === 'wikilink') return a.target === (b as typeof a).target
   return true
 }

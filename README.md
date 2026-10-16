@@ -111,7 +111,7 @@ Full rationale in [`docs/02-architecture.md`](docs/02-architecture.md).
 
 ## Testing
 
-307 tests, all passing. The five that matter:
+354 tests, all passing. The five that matter:
 
 **`test/roundtrip.test.ts`** -- `parse -> serialise` must be idempotent, across 48 hand-written
 cases (CJK emphasis, nested mixed-type lists, setext headings, fences containing fences,
@@ -153,7 +153,7 @@ so tables were silently flattening to plain text.
 Worth reading before trusting the appearance. Full detail in
 [`docs/03-roadmap.md`](docs/03-roadmap.md#verification-status--read-this-before-trusting-the-visuals).
 
-**Verified** -- 307 tests, a jsdom mount of the real app, and a live browser session reading
+**Verified** -- 354 tests, a jsdom mount of the real app, and a live browser session reading
 computed styles from the running application.
 
 That last one earned its keep. It caught a bug nothing else could:

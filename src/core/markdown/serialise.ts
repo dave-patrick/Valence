@@ -232,6 +232,8 @@ function wrap(text: string, mark: InlineMark, verbatim: boolean): string {
     }
     case 'footnote_ref':
       return `[^${mark.id}]`
+    case 'wikilink':
+      return `[[${mark.target}${mark.heading ? '#' + mark.heading : ''}${mark.alias ? '|' + mark.alias : ''}]]`
     default:
       return text
   }

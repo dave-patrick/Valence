@@ -137,6 +137,10 @@ function markToHtml(mark: InlineMark, inner: string): string {
     }
     case 'footnote_ref':
       return `<sup data-type="footnote-ref" data-id="${escapeAttr(mark.id)}">[${escapeHtml(mark.id)}]</sup>`
+    case 'wikilink': {
+      const display = escapeHtml(mark.alias ?? mark.target)
+      return `<a data-type="wikilink" data-target="${escapeAttr(mark.target)}"${mark.heading ? ` data-heading="${escapeAttr(mark.heading)}"` : ''}${mark.alias ? ` data-alias="${escapeAttr(mark.alias)}"` : ''}>${display}</a>`
+    }
     case 'link':
       return `<a href="${escapeAttr(mark.href)}"${mark.title ? ` title="${escapeAttr(mark.title)}"` : ''}>${inner}</a>`
     case 'image': {
@@ -384,6 +388,24 @@ function collectSpans(el: Node, marks: InlineMark[]): InlineSpan[] {
           ],
         })
       }
+      continue
+    }
+
+    // Wiki links carry their target on `data-*` and render their text through the span list.
+    if (tag === 'a' && (child as HTMLElement).dataset.type === 'wikilink') {
+      const el = child as HTMLElement
+      spans.push({
+        text: el.textContent ?? '',
+        marks: [
+          ...marks,
+          {
+            type: 'wikilink',
+            target: el.dataset.target ?? '',
+            alias: el.dataset.alias || undefined,
+            heading: el.dataset.heading || undefined,
+          },
+        ],
+      })
       continue
     }
 

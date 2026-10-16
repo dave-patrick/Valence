@@ -17,6 +17,7 @@ import type { MarkdownIt as MarkdownItInstance, Token } from 'markdown-it'
 import { parseFrontMatter } from '../../shared/frontMatter'
 import type { AnyBlock, InlineMark, InlineSpan, ParsedDocument } from '../types'
 import { renderInline } from './inline'
+import { parseWikiLinkBody } from '@core/wiki'
 
 type Align = 'left' | 'center' | 'right' | null
 
@@ -71,6 +72,39 @@ export function parseMarkdown(source: string, options: ParseOptions = {}): Parse
       token.content = state.src.slice(start + 1, end)
     }
     state.pos = end + 1
+    return true
+  })
+
+  // Wiki links: `[[Note]]`, `[[Note|alias]]`, `[[Note#Section]]`.
+  //
+  // Registered before `emphasis` so the brackets are consumed as one token. markdown-it only
+  // offers this rule on `text` tokens, which is what keeps `[[…]]` inside a code span or a
+  // fenced block literal — that falls out of the tokenizer rather than being checked here.
+  md.inline.ruler.before('emphasis', 'wikilink', (state, silent) => {
+    const start = state.pos
+    if (state.src.charCodeAt(start) !== 0x5b /* [ */) return false
+    if (state.src.charCodeAt(start + 1) !== 0x5b) return false
+    if (state.src.charCodeAt(start - 1) === 0x5c /* \ */) return false
+
+    const close = state.src.indexOf(']]', start + 2)
+    if (close === -1) return false
+
+    const body = state.src.slice(start + 2, close)
+    // A newline inside means this is not a link — it is prose that happens to contain
+    // brackets, and swallowing it would delete the user's text.
+    if (body.includes('\n')) return false
+
+    const parsed = parseWikiLinkBody(body)
+    if (!parsed) return false
+
+    if (!silent) {
+      const token = state.push('wikilink', '', 0)
+      token.content = parsed.display
+      token.attrSet('target', parsed.target)
+      if (parsed.alias) token.attrSet('alias', parsed.alias)
+      if (parsed.heading) token.attrSet('heading', parsed.heading)
+    }
+    state.pos = close + 2
     return true
   })
 

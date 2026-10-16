@@ -47,6 +47,8 @@ export type InlineMark =
   | { type: 'image'; src: string; alt?: string; title?: string }
   | { type: 'math'; display: false }
   | { type: 'footnote_ref'; id: string }
+  /** `[[Note]]`, `[[Note|alias]]` or `[[Note#Section]]`. */
+  | { type: 'wikilink'; target: string; alias?: string; heading?: string }
   | { type: 'sub' }
   | { type: 'sup' }
   | { type: 'mark' }

@@ -30,7 +30,7 @@ What is built, what is deliberately deferred, and why. Every item traces to a fi
 | Electron main process, preload bridge, menu, PDF export | `src/main/`, `src/preload/` |
 | electron-builder packaging config for mac/win/linux | `package.json` -> `build` |
 
-307 tests passing, typecheck clean, production build succeeds.
+354 tests passing, typecheck clean, production build succeeds.
 
 ### M1.1 -- what it does
 
@@ -79,7 +79,7 @@ individually rather than one representative case.
 
 ## Verification status -- read this before trusting the visuals
 
-Functional behaviour is verified three ways: 307 unit and integration tests, a jsdom mount
+Functional behaviour is verified three ways: 354 unit and integration tests, a jsdom mount
 that drives the real app, and a live browser session reading computed styles from the
 running app.
 
