@@ -21,6 +21,9 @@ import { buildBacklinks, resolveWikiLink } from '@core/wiki'
 import { ExportDialog } from '@features/export/ExportDialog'
 import { Palette } from '@features/commands/Palette'
 import { COMMANDS } from '@features/commands/commands'
+import { SlashMenu } from '@features/slash/SlashMenu'
+import { searchSlashItems, SLASH_ITEMS } from '@features/slash/slashCommands'
+import { detectSlash } from '@features/slash/useSlash'
 import { loadSettings, rememberFolder, resolveTheme, saveSession, saveSettings } from '@features/settings/store'
 import type { Settings } from '@core/settings'
 import {
@@ -60,6 +63,11 @@ export function App() {
   const [readError, setReadError] = useState<string | null>(null)
   const [exportOpen, setExportOpen] = useState(false)
   const [paletteOpen, setPaletteOpen] = useState(false)
+  const [slashMenu, setSlashMenu] = useState<{
+    items: ReturnType<typeof searchSlashItems>
+    range: { from: number; to: number; query: string }
+    pos: { top: number; left: number }
+  } | null>(null)
 
   // Placeholder - filled below after editor creation.
   const [activeHeading, setActiveHeading] = useState('')
@@ -299,6 +307,22 @@ export function App() {
         }
       }
       setActiveHeading('')
+
+      // Slash menu detection.
+      const range = detectSlash(e)
+      if (range) (window as any).__slashLast = range
+      if (!range) {
+        setSlashMenu(null)
+        return
+      }
+      const query = range.query
+      const items = searchSlashItems(SLASH_ITEMS, query)
+      if (!items.length) {
+        setSlashMenu(null)
+        return
+      }
+      const coords = e.view.coordsAtPos(range.to)
+      setSlashMenu({ items, range, pos: { top: coords.bottom + 4, left: coords.left } })
     },
   })
 
@@ -454,6 +478,57 @@ export function App() {
   /* ── Menu, shortcuts, persistence ──────────────────────────── */
 
   /* ── Commands: one dispatcher for the menu, the keyboard and the palette ── */
+
+  const runSlash = useCallback((cmd: { id: string }, range: { from: number; to: number }) => {
+    if (!editor) return
+    editor.chain().focus().deleteRange({ from: range.from, to: range.to }).run()
+    const run = (fn: () => void) => { try { fn() } catch { /* editor may have changed */ } }
+    switch (cmd.id) {
+      case 'h1': case 'h2': case 'h3':
+        run(() => editor.chain().focus().toggleHeading({ level: Number(cmd.id.slice(1)[0]) as 1 | 2 | 3 | 4 | 5 | 6 }).run())
+        break
+      case 'paragraph':
+        run(() => editor.chain().focus().setParagraph().run())
+        break
+      case 'quote':
+        run(() => editor.chain().focus().toggleBlockquote().run())
+        break
+      case 'list.bullet':
+        run(() => editor.chain().focus().toggleBulletList().run())
+        break
+      case 'list.numbered':
+        run(() => editor.chain().focus().toggleOrderedList().run())
+        break
+      case 'list.task':
+        run(() => editor.chain().focus().toggleTaskList().run())
+        break
+      case 'code':
+        run(() => editor.chain().focus().toggleCodeBlock().run())
+        break
+      case 'horizontal':
+        run(() => editor.chain().focus().setHorizontalRule().run())
+        break
+      case 'table':
+        run(() => editor.chain().focus().insertTable({ rows: 2, cols: 2, withHeaderRow: true }).run())
+        break
+      case 'math.block':
+        run(() => editor.chain().focus().insertContent('```math\n\n```\n').run())
+        break
+      case 'math.inline':
+        run(() => editor.chain().focus().insertContent('$x$').run())
+        break
+      case 'diagram':
+        run(() => editor.chain().focus().insertContent('```mermaid\ngraph TD\n  A --> B\n```\n').run())
+        break
+      case 'callout':
+        run(() => editor.chain().focus().insertContent('> [!note]\n> \n').run())
+        break
+      case 'frontmatter':
+        run(() => editor.chain().focus().insertContent('---\ntitle: \n---\n').run())
+        break
+    }
+    setSlashMenu(null)
+  }, [editor])
 
   const moveTab = useCallback((delta: number) => {
     setSession((s) => {
@@ -755,6 +830,15 @@ export function App() {
             )}
             <StrataGutter headings={headings} active={activeHeading} />
           </div>
+
+           {slashMenu && (
+             <SlashMenu
+               items={slashMenu.items}
+               position={slashMenu.pos}
+               onRun={(item) => runSlash(item, slashMenu.range)}
+               onClose={() => setSlashMenu(null)}
+             />
+           )}
 
           <TableToolbar editor={editor} />
         </main>
