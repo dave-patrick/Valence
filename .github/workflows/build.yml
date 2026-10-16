@@ -17,7 +17,7 @@ jobs:
         include:
           - os: windows-latest
             script: build:win
-            artifact: 'release/*.exe'
+            artifact: 'release/*.zip'
           - os: ubuntu-latest
             script: build:linux
             artifact: 'release/*.AppImage'
