@@ -9,6 +9,14 @@
  * not as four levels the user has to open one at a time.
  */
 
+import {
+  basename,
+  dirname,
+  joinPath,
+  normalise,
+  relativeSegments,
+} from '@shared/path'
+
 export interface FileEntry {
   path: string
   /** Directory entries are used to confirm a folder exists, but never shown. */
@@ -161,51 +169,14 @@ export function filterTree(nodes: readonly TreeNode[], query: string): TreeNode[
 
 /* ──────────────────────────────────────────────────────────────
  * Path helpers
+ *
+ * These live in `src/shared/path` so the core and the renderer agree on what a path is.
+ * `dirname` in particular has to preserve the leading slash: a version that split and
+ * rejoined made every absolute path relative, and a directory-expansion pass built on top
+ * of it could expand nothing.
  * ──────────────────────────────────────────────────────────────*/
 
-export function normalise(path: string): string {
-  return path.replace(/\\/g, '/').replace(/\/+$/, '')
-}
-
-export function basename(path: string): string {
-  return segment(path).pop() ?? path
-}
-
-/**
- * Parent directory, preserving the root.
- *
- * Splitting on separators and rejoining loses the leading slash, which would turn every
- * absolute path into a relative one -- so this slices the normalised string instead, and
- * `/file.md` correctly yields `/` rather than the empty string.
- */
-export function dirname(path: string): string {
-  const n = normalise(path)
-  if (!n) return ''
-  const idx = n.lastIndexOf('/')
-  if (idx === -1) return ''
-  if (idx === 0) return '/'
-  return n.slice(0, idx)
-}
-
-/** Path segments of `target` relative to `root`, or null when it is not inside it. */
-export function relativeSegments(root: string, target: string): string[] | null {
-  const r = segment(normalise(root))
-  const t = segment(normalise(target))
-  if (r.length > t.length) return null
-  for (let i = 0; i < r.length; i++) {
-    if (r[i] !== t[i]) return null
-  }
-  return t.slice(r.length)
-}
-
-export function joinPath(dir: string, name: string): string {
-  if (!dir) return name
-  const n = normalise(dir)
-  // `normalise('/')` is the empty string, so the root needs handling explicitly or every
-  // file under `/` would be joined onto a relative path.
-  if (!n) return `/${name}`
-  return `${n}/${name}`
-}
+export { basename, dirname, joinPath, normalise, relativeSegments } from '@shared/path'
 
 /**
  * Expands the set of directories whose children should be visible: the root, every ancestor

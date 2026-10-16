@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { EditorContent, useEditor } from '@tiptap/react'
 import { createExtensions } from '@core/editor/extensions'
-import { dirnameOf } from '@core/editor/clipboard'
+import { dirname } from '@shared/path'
 import { Rail } from '@ui/Rail'
 import { Sidebar } from '@ui/Sidebar'
 import { StatusBar } from '@ui/StatusBar'
@@ -164,7 +164,7 @@ export function App() {
         }),
         writeImage: async (data, extension) => {
           const doc = activeDoc(session)
-          const dir = doc?.path ? dirnameOf(doc.path) : ''
+          const dir = doc?.path ? dirname(doc.path) : ''
           const stamp = new Date().toISOString().slice(0, 19).replace(/[:T-]/g, '')
           const path = dir ? `${dir}/pasted-${stamp}.${extension}` : `pasted-${stamp}.${extension}`
           await platform.fs.writeBinary(path, data)

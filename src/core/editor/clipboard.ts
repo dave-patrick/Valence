@@ -12,6 +12,7 @@ import { DOMParser as ProseMirrorDOMParser } from '@tiptap/pm/model'
 import type { EditorView } from '@tiptap/pm/view'
 import { blocksToHtml, htmlToBlocks } from '@core/htmlBridge'
 import { serialiseMarkdown } from '@core/markdown/serialise'
+import { basename, dirname, relativePath } from '@shared/path'
 import {
   extensionFor,
   imageMarkdown,
@@ -102,14 +103,14 @@ async function pasteImage(
   if (!file) return
 
   const ctx = hooks.context()
-  const dir = ctx.documentPath ? dirnameOf(ctx.documentPath) : ''
+  const dir = ctx.documentPath ? dirname(ctx.documentPath) : ''
 
   try {
     const taken = dir ? await hooks.neighbours(dir) : []
     const name = imageName(taken, extension)
     const written = await hooks.writeImage(await file.arrayBuffer(), extension)
 
-    const relative = relativeTo(dir, written) ?? basenameOf(written)
+    const relative = relativePath(dir, written) ?? basename(written)
     insertMarkdown(view, imageMarkdown(relative))
   } catch {
     // If the image cannot be written, say so in the document rather than silently dropping
@@ -122,26 +123,6 @@ async function pasteImage(
 function markdownToEditorHtml(markdown: string): string {
   const { text } = serialiseMarkdown(null, htmlToBlocks(markdown))
   return blocksToHtml(htmlToBlocks(text))
-}
-
-export function dirnameOf(p: string): string {
-  const parts = p.split(/[\\/]/).filter(Boolean)
-  parts.pop()
-  return parts.join('/')
-}
-
-export function basenameOf(p: string): string {
-  return p.split(/[\\/]/).filter(Boolean).pop() ?? p
-}
-
-function relativeTo(fromDir: string, to: string): string | null {
-  if (!fromDir) return null
-  const a = fromDir.split('/').filter(Boolean)
-  const b = to.split(/[\\/]/).filter(Boolean)
-  let common = 0
-  while (common < a.length && common < b.length - 1 && a[common] === b[common]) common++
-  if (common === 0) return null
-  return [...Array(a.length - common).fill('..'), ...b.slice(common)].join('/')
 }
 
 /** Re-exported so `App` does not need to import the serialiser just to build the context. */

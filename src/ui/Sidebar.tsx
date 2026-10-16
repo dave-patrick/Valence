@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import type { PanelId } from '@/App'
 import type { OutlineEntry } from '@features/outline/outline'
 import { FileTree } from '@features/files/FileTree'
-import { dirnameOf } from '@core/editor/clipboard'
+import { dirname } from '@shared/path'
 
 interface SidebarProps {
   width: number
@@ -58,7 +58,7 @@ export function Sidebar({
         {kind === 'search' && <SearchPanel source={source} />}
         {kind === 'files' && (
           <FileTree
-            root={activePath ? dirnameOf(activePath) : null}
+            root={activePath ? dirname(activePath) : null}
             activePath={activePath}
             onOpen={onOpenFile}
             onError={() => undefined}

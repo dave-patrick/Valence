@@ -79,6 +79,48 @@ function tick(ms = 250): Promise<void> {
   return new Promise((r) => setTimeout(r, ms))
 }
 
+/**
+ * Waits for a DOM predicate instead of sleeping a fixed amount.
+ *
+ * Every "click, then assert it appeared" test in this file used to wait a flat 250ms. That is
+ * a guess about React's scheduling, and it holds only on a quiet machine: under parallel
+ * load the commit lands later and the assertion fails, which is indistinguishable from a
+ * real bug and trains everyone to re-run instead of reading. Polling makes these tests
+ * deterministic at no cost when the machine is fast.
+ */
+async function waitFor<T>(
+  read: () => T | null | undefined | false,
+  label = 'condition',
+  timeoutMs = 10000,
+): Promise<T> {
+  const start = Date.now()
+  for (;;) {
+    const value = read()
+    if (value) return value as T
+    if (Date.now() - start > timeoutMs) {
+      throw new Error(`timed out waiting for ${label}`)
+    }
+    await new Promise((r) => setTimeout(r, 20))
+  }
+}
+
+/** Clicks and waits for the result, so no test depends on a scheduler's timing. */
+async function clickAndWait(label: string, what: string): Promise<HTMLElement> {
+  const el = await waitFor(() => container.querySelector(what), `${label} (${what})`)
+  click(el)
+  await tick(60)
+  return el as HTMLElement
+}
+
+/** Waits for something to disappear, which is how a close is asserted. */
+async function waitGone(what: string, label = what): Promise<void> {
+  const start = Date.now()
+  while (container.querySelector(what)) {
+    if (Date.now() - start > 10000) throw new Error(`timed out waiting for ${label} to disappear`)
+    await new Promise((r) => setTimeout(r, 20))
+  }
+}
+
 function click(el: Element | null | undefined): void {
   if (!el) throw new Error('expected an element to click')
   ;(el as HTMLElement).dispatchEvent(new MouseEvent('click', { bubbles: true }))
@@ -151,88 +193,101 @@ describe('app shell', () => {
 describe('views over one document', () => {
   it('switches to source without detaching the document', async () => {
     click(byLabel('Source'))
-    await tick()
 
-    const textarea = container.querySelector('textarea[data-view="source"]') as HTMLTextAreaElement
-    expect(textarea, 'source view should render an editable textarea').toBeTruthy()
+    const textarea = await waitFor(
+      () => container.querySelector('textarea[data-view="source"]') as HTMLTextAreaElement | null,
+      'the source view',
+    )
     expect(textarea.value).toContain('# Writing in Valence')
     // Two-way bound, and editable — not a read-only mirror.
     expect(textarea.readOnly).toBe(false)
   })
 
   it('parses edits made in source back into editor state', async () => {
-    const textarea = container.querySelector('textarea[data-view="source"]') as HTMLTextAreaElement
+    const textarea = await waitFor(
+      () => container.querySelector('textarea[data-view="source"]') as HTMLTextAreaElement | null,
+      'the source view',
+    )
     const before = textarea.value
 
     setNativeValue(textarea, `${before}\n\n## A heading typed in source\n`)
     await tick()
 
     click(byLabel('Hybrid'))
-    await tick()
 
-    const surface = container.querySelector('.editor-surface')!
-    const headings = [...surface.querySelectorAll('h2')].map((h) => h.textContent)
+    // Wait for the outcome, not the surface: switching back mounts the editor immediately,
+    // but the source text has to be parsed into it asynchronously.
+    const headings = await waitFor(() => {
+      const surface = container.querySelector('.editor-surface')
+      if (!surface) return null
+      const found = [...surface.querySelectorAll('h2')].map((h) => h.textContent)
+      return found.includes('A heading typed in source') ? found : null
+    }, 'the typed heading to reach the editor')
     expect(headings).toContain('A heading typed in source')
   })
 
   it('renders the read pipeline beside the editor in split view', async () => {
     click(byLabel('Split'))
-    await tick(700)
 
-    const pane = container.querySelector('.split-pane')
+    const pane = await waitFor(() => container.querySelector('.split-pane'), 'the split pane')
     expect(pane).toBeTruthy()
-    const read = container.querySelector('.read-surface') as HTMLElement
-    expect(read).toBeTruthy()
+    // The read pane is populated asynchronously by the render pipeline, so its content is
+    // what to wait on — not the pane's existence.
+    const read = await waitFor(() => {
+      const el = container.querySelector('.read-surface') as HTMLElement | null
+      return el && el.innerHTML.length > 0 ? el : null
+    }, 'rendered read pane')
     expect(read.innerHTML.length).toBeGreaterThan(0)
   })
 })
 
 describe('chrome', () => {
   it('switches theme and records it on the document element', async () => {
-    click(container.querySelector('[aria-label="Switch to dark theme"]'))
-    await tick()
-    expect(document.documentElement.dataset.theme).toBe('dark')
+    await clickAndWait('theme toggle', '[aria-label="Switch to dark theme"]')
+    await waitFor(() => document.documentElement.dataset.theme === 'dark', 'dark theme')
 
-    click(container.querySelector('[aria-label="Switch to light theme"]'))
-    await tick()
-    expect(document.documentElement.dataset.theme).toBe('light')
+    await clickAndWait('theme toggle', '[aria-label="Switch to light theme"]')
+    await waitFor(() => document.documentElement.dataset.theme === 'light', 'light theme')
   })
 
   it('opens and closes panels from the rail', async () => {
-    click(container.querySelector('[aria-label="Search"]'))
-    await tick()
-    expect(container.querySelector('[aria-label="Find in document"]')).toBeTruthy()
+    await clickAndWait('search panel', '[aria-label="Search"]')
+    await waitFor(
+      () => container.querySelector('[aria-label="Find in document"]'),
+      'the search panel',
+    )
 
-    click(container.querySelector('[aria-label="Search"]'))
-    await tick()
-    expect(container.querySelector('[aria-label="Find in document"]')).toBeNull()
+    await clickAndWait('search panel', '[aria-label="Search"]')
+    await waitGone('[aria-label="Find in document"]', 'the search panel')
   })
 })
 
 describe('export dialog', () => {
   /** Ctrl+E is handled on the document, so it needs a real KeyboardEvent. */
-  async function pressCtrlE(): Promise<void> {
+  async function pressCtrlE(): Promise<HTMLElement> {
     document.dispatchEvent(
       new KeyboardEvent('keydown', { key: 'e', ctrlKey: true, bubbles: true, cancelable: true }),
     )
-    await tick()
+    // The dialog fetches the format list on mount, so wait for the rows rather than the
+    // shell — an empty dialog is the loading state, not the result.
+    return waitFor(() => {
+      const d = container.querySelector('[role="dialog"][aria-label="Export"]') as HTMLElement | null
+      return d && d.querySelectorAll('button').length > 1 ? d : null
+    }, 'the export dialog')
   }
 
   it('opens on Ctrl+E and lists the formats the platform offers', async () => {
-    await pressCtrlE()
-    const dialog = container.querySelector('[role="dialog"][aria-label="Export"]')
-    expect(dialog).toBeTruthy()
+    const dialog = await pressCtrlE()
 
     // The web platform offers HTML and PDF only -- it must not advertise Pandoc formats.
-    const labels = [...dialog!.querySelectorAll('button')].map((b) => b.textContent ?? '')
+    const labels = [...dialog.querySelectorAll('button')].map((b) => b.textContent ?? '')
     expect(labels.some((l) => l.includes('Web Page'))).toBe(true)
     expect(labels.some((l) => l.includes('PDF'))).toBe(true)
     expect(labels.some((l) => l.includes('Word'))).toBe(false)
   })
 
   it('explains why Pandoc formats are unavailable rather than failing on click', async () => {
-    await pressCtrlE()
-    const dialog = container.querySelector('[role="dialog"][aria-label="Export"]')!
+    const dialog = await pressCtrlE()
     // hasPandoc() is false in the browser fallback, so the dialog must say so outright.
     expect(dialog.textContent).toMatch(/Pandoc is not installed/i)
   })
@@ -240,7 +295,28 @@ describe('export dialog', () => {
   it('closes without exporting when dismissed', async () => {
     await pressCtrlE()
     click(container.querySelector('[aria-label="Close export dialog"]'))
-    await tick()
-    expect(container.querySelector('[role="dialog"][aria-label="Export"]')).toBeNull()
+    await waitGone('[role="dialog"][aria-label="Export"]', 'the export dialog')
+  })
+})
+
+describe('files panel', () => {
+  const emptyState = () => /Open a folder to browse it/i.test(container.textContent ?? '')
+
+  it('opens with an explained empty state and closes again', async () => {
+    // Self-contained on purpose: this asserts the whole open/close cycle, so it must not
+    // depend on which panel the previous test happened to leave open.
+    await clickAndWait('files panel', '[aria-label="Files"]')
+    await waitFor(emptyState, 'the files panel empty state', 4000)
+
+    // The welcome document has no path, so there is no folder to root a tree at. The panel
+    // has to say that rather than render an empty box or throw.
+    expect(container.querySelector('[role="tree"]')).toBeNull()
+
+    await clickAndWait('files panel', '[aria-label="Files"]')
+    const start = Date.now()
+    while (emptyState()) {
+      if (Date.now() - start > 4000) throw new Error('the files panel did not close')
+      await new Promise((r) => setTimeout(r, 20))
+    }
   })
 })

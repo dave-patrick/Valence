@@ -244,3 +244,82 @@ describe('tab labels', () => {
     expect(tabLabel(s.documents[0]!, s.documents)).toBe('one.md')
   })
 })
+
+/**
+ * The boot sequence, which is the one part of restore that lives outside `src/core` and so
+ * has no other coverage.
+ *
+ * It earns a test because its failure mode is the quietest available: a session that fails
+ * to restore opens the welcome document instead of reporting anything, and that looks
+ * identical to "there was no previous session". Asserting only the pure helpers would not
+ * have caught it.
+ */
+describe('session restore', () => {
+  const STORE: Record<string, string> = {
+    '/notes/index.md': '# Index\n',
+    '/notes/2026/journal.md': '# Journal\n\n## Week one\n',
+  }
+  const read = async (path: string) => {
+    const v = STORE[path]
+    if (v === undefined) throw new Error(`No such file: ${path}`)
+    return v
+  }
+
+  /** Mirrors the boot effect in `App.tsx`, including its fallback. */
+  async function boot(settingsInput: unknown): Promise<{ restored: string[]; fellBack: boolean }> {
+    const loaded = normaliseSettings(settingsInput)
+    if (!loaded.restoreSession || !loaded.lastSession.length) return { restored: [], fellBack: true }
+
+    const docs = await Promise.all(
+      loaded.lastSession.map(async (path) => {
+        try {
+          return fromPath(path, await read(path))
+        } catch {
+          return null
+        }
+      }),
+    )
+    const found = docs.filter((d): d is NonNullable<typeof d> => d !== null)
+    const next = openAll({ documents: [], activeId: '' }, found)
+    return {
+      restored: sessionPaths(next),
+      fellBack: next.documents.length === 0,
+    }
+  }
+
+  it('reopens the remembered document', async () => {
+    const r = await boot({ restoreSession: true, lastSession: ['/notes/2026/journal.md'] })
+    expect(r.restored).toEqual(['/notes/2026/journal.md'])
+    expect(r.fellBack).toBe(false)
+  })
+
+  it('carries file contents into the restored document', async () => {
+    const s = await fromPath('/notes/2026/journal.md', await read('/notes/2026/journal.md'))
+    expect(s.source).toContain('## Week one')
+  })
+
+  it('keeps the rest of the session when one file has been deleted', async () => {
+    const r = await boot({
+      restoreSession: true,
+      lastSession: ['/notes/gone.md', '/notes/index.md'],
+    })
+    expect(r.restored).toEqual(['/notes/index.md'])
+    expect(r.fellBack).toBe(false)
+  })
+
+  it('falls back rather than opening an empty window when every file is gone', async () => {
+    const r = await boot({ restoreSession: true, lastSession: ['/gone/a.md', '/gone/b.md'] })
+    expect(r.fellBack).toBe(true)
+  })
+
+  it('falls back when restore is off, even with paths remembered', async () => {
+    const r = await boot({ restoreSession: false, lastSession: ['/notes/index.md'] })
+    expect(r.fellBack).toBe(true)
+  })
+
+  it('survives a settings file from an older version', async () => {
+    // Renamed keys must not take the ones still in use down with them.
+    const r = await boot({ tabBarLocation: 'bottom', dailyGoal: 500, lastSession: ['/notes/index.md'] })
+    expect(r.restored).toEqual(['/notes/index.md'])
+  })
+})

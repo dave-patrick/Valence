@@ -20,8 +20,9 @@ What is built, what is deliberately deferred, and why. Every item traces to a fi
 | **M1.4 Smart paste and clipboard images** | `test/paste.test.ts`, 19 tests |
 | **M1.5 Focus and typewriter modes** | `src/core/editor/viewModes.ts`; both were dead settings toggles before this |
 | **M3 Export** | `test/export.test.ts`, 28 tests; PDF via print, Pandoc for the rest |
-| **M4 Workspace file tree** | `test/tree.test.ts`, 27 tests |
-| Editor shell -- hybrid / source / split over one document | `test/app.smoke.test.ts` drives real view switches |
+| **M4 Workspace file tree** | `test/tree.test.ts` + `test/path.test.ts`, 49 tests |
+| Session restore, including files deleted since last run | `test/session.test.ts`, 34 tests |
+| Editor shell -- hybrid / source / split over one document | `test/app.smoke.test.ts`, 17 tests |
 | Read + export pipeline (Shiki, KaTeX, Mermaid) | renders in split view |
 | Design system: house tokens shared with Quantos | `src/renderer/src/styles/tokens.css` |
 | Prose-only word count + reading time | `src/features/stats/` |
@@ -29,7 +30,7 @@ What is built, what is deliberately deferred, and why. Every item traces to a fi
 | Electron main process, preload bridge, menu, PDF export | `src/main/`, `src/preload/` |
 | electron-builder packaging config for mac/win/linux | `package.json` -> `build` |
 
-236 tests passing, typecheck clean, production build succeeds.
+265 tests passing, typecheck clean, production build succeeds.
 
 ### M1.1 -- what it does
 
@@ -78,7 +79,7 @@ individually rather than one representative case.
 
 ## Verification status -- read this before trusting the visuals
 
-Functional behaviour is verified three ways: 95 unit and integration tests, a jsdom mount
+Functional behaviour is verified three ways: 265 unit and integration tests, a jsdom mount
 that drives the real app, and a live browser session reading computed styles from the
 running app. That live session earned its keep -- it caught a bug no test could:
 
@@ -122,18 +123,35 @@ Every item from MarkText's model has shipped:
 - **column drag-to-reorder** with a drop indicator.
 
 
-### M1.4 -- Smart paste and clipboard
+### M1.4 -- Smart paste and clipboard (complete)
 
-Typora's behaviour: pasted HTML keeps its semantics (`<h1>` stays a heading) instead of
-arriving as plain text. `htmlToBlocks` already handles this -- it needs wiring to a paste
-handler plus `Copy as Markdown / HTML / Plain Text`.
+Pasted HTML keeps its semantics: `<h2>` arrives as a heading, a `<ul>` as a list, a table as a
+table. The clipboard's HTML flavour is preferred over its plain-text flavour, and absolute
+links are rewritten relative to the current document. Web URLs, already-relative links and
+anchors are left alone.
 
-Also: paste images from the clipboard straight into the document (both apps have this).
+Clipboard images are written beside the document and inserted as a relative-path image. The
+name is timestamped and checked against what is already in the folder, so two pastes in the
+same second do not overwrite each other. This needed a new `writeBinary` on the `Platform`
+contract, implemented in Electron, Node and the browser fallback.
 
-### M1.5 -- Focus and typewriter modes
+`Copy as Markdown / HTML / Plain Text` is **not** done.
 
-Low cost, high perceived quality. Focus dims non-active paragraphs; typewriter pins the
-current line to the vertical centre. Both are decorations on the existing editor.
+The tests for this found a bug that had nothing to do with paste: `htmlToBlocks` treated
+every element that was not a `<div>` as loose inline content and never wrapped it, so
+clipboard HTML arriving as a bare inline fragment — a lone `<a>`, a `<strong>` run — was
+flattened to plain text with every mark discarded. That is precisely the failure smart paste
+exists to prevent, and it was live in the HTML bridge before this feature existed.
+
+### M1.5 -- Focus and typewriter modes (complete)
+
+Focus dims non-active paragraphs; typewriter pins the current line to the vertical centre.
+
+Both were settings that did nothing before this. They are decorations driven off the active
+paragraph in `src/core/editor/viewModes.ts`, off the same flags the settings panel writes.
+
+The focus-mode CSS deliberately has **no transition**. ProseMirror re-creates decorated nodes
+on every transaction, so a transition restarts constantly and reads as flicker.
 
 ---
 
@@ -151,21 +169,43 @@ contract.
 
 ---
 
-## M3 -- Output
+## M3 -- Output (mostly done)
 
-| Feature | Source | Notes |
+| Feature | Source | State |
 |---|---|---|
-| PDF with bookmarks | OS print pipeline | outline -> PDF bookmarks |
-| HTML, images | native | already working |
-| docx, odt, rtf, epub, LaTeX, MediaWiki | Pandoc | detect at runtime, one-click install, never hard-fail |
-| Theme gallery + custom CSS | Typora | CSS-variable themes, drop-in import |
+| PDF | OS print pipeline | **done** — uses the same HTML split view renders |
+| HTML, plain text | native | **done** |
+| docx, odt, epub, LaTeX, MediaWiki | Pandoc | **done** — detected at runtime, disabled with a reason when absent |
+| Theme gallery + custom CSS | Typora | not started |
+
+Pandoc availability is checked before the dialog offers anything, so a missing binary shows
+up as a disabled entry with its reason attached rather than an error at click time. The
+Pandoc target name is mapped separately from our own format id — `latex` is `latex` to
+Pandoc but `.tex` on disk, and passing our id through silently produces a wrong file rather
+than an error. That mapping is asserted in `test/export.test.ts` rather than trusted at the
+call site.
+
+Export is `Ctrl/Cmd+E`.
 
 ---
 
-## M4 -- Organisation
+## M4 -- Organisation (partly done)
 
-File tree, file list, workspace-wide search with ripgrep, multi-tab sessions, workspace
-restore. Typora's organisation model; MarkText's tab handling.
+| Feature | State |
+|---|---|
+| File tree | **done** — collapsible, directories before files, active file highlighted |
+| Tree search | **done** — filters the tree rather than listing flat matches |
+| Multi-tab sessions | **done** — reordering, dirty state, session restore |
+| File list view | not started |
+| Workspace-wide search (ripgrep) | not started |
+| Workspace restore | partial — the tab session restores; a saved workspace is not a thing |
+
+The tree search filters rather than replacing the view on purpose: you reason about where a
+note lives by its folder, so the folder structure has to survive you typing.
+
+The tree is rooted at the **active document's folder**, not at a chosen workspace. That is a
+deliberate simplification — Typora and MarkText both make you pick a workspace first — and
+it is the main thing to revisit if multi-folder vaults matter.
 
 ---
 
