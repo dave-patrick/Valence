@@ -76,9 +76,7 @@
     },
     "win": {
       "target": [
-        "zip",
-        "portable",
-        "nsis"
+        "zip"
       ]
     },
     "linux": {
