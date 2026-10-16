@@ -181,10 +181,10 @@
 .valence-shell-active {
   filter: drop-shadow(0 0 4px color-mix(in oklab, var(--accent) 45%, transparent));
 }
- *
- * Column resize handles are `::after` pseudo-elements on the cell's right edge: they cost
- * no DOM, never enter the document, and cannot be selected or serialised. A real element
- * would need the same `contenteditable=false` treatment as the syntax markers. */
+
+/* Column resize handles are ::after pseudo-elements on the cell right edge: they cost
+   no DOM, never enter the document, and cannot be selected or serialised. A real element
+   would need the same contenteditable=false treatment as the syntax markers. */
 
 .editor-surface .tableWrapper {
   position: relative;

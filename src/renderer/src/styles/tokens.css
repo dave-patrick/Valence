@@ -18,6 +18,18 @@
 
 @import 'tailwindcss';
 
+/*
+ * Explicit source scanning.
+ *
+ * Paths are relative to this file, which lives at `src/renderer/src/styles/`. Declaring
+ * `@source` replaces Tailwind's automatic detection, so this has to be right in both
+ * directions: too narrow and whole directories render unstyled with no error anywhere.
+ *
+ * `../../../` is `src/`, which is where every component carrying utility classes lives --
+ * `src/renderer/src`, `src/ui` and `src/features`.
+ */
+@source '../../../';
+
 @theme {
   --color-bg: #0c131d;
   --color-panel: #111d2b;
@@ -77,6 +89,7 @@
     --focus-ring: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent);
     --sidebar-w: 248px;
     --rightbar-w: 296px;
+    --inspector-w: 176px;
     --statusbar-h: 26px;
     --tab-h: 34px;
     --editor-size: 17px;

@@ -1,5 +1,6 @@
 import { resolve } from 'node:path'
 import react from '@vitejs/plugin-react'
+import tailwindcss from '@tailwindcss/vite'
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
 
 const alias = {
@@ -24,7 +25,9 @@ export default defineConfig({
   },
   renderer: {
     root: resolve('src/renderer'),
-    plugins: [react()],
+    // Tailwind has to run here as well as in the dev server, or the packaged build ships
+    // with every utility class missing while dev looks fine.
+    plugins: [react(), tailwindcss()],
     resolve: { alias },
     build: {
       rollupOptions: { input: resolve('src/renderer/index.html') },

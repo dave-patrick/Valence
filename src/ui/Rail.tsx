@@ -11,9 +11,24 @@ interface RailProps {
 /** The icon rail. 48px, always visible, never scrolls. Icons are the only decoration here —
  *  everything else in the chrome stays flat. */
 
+/*
+ * Rail glyphs are 24x24 stroke paths on a 1.6 stroke, so they sit on the same optical
+ * weight as the 11.5px labels beside them.
+ *
+ * Files is a folder and outline is a list of lines with indents, because two three-line
+ * glyphs next to each other are indistinguishable at 18px.
+ */
 const ITEMS: { id: Exclude<PanelId, null>; label: string; glyph: string }[] = [
-  { id: 'files', label: 'Files', glyph: 'M3 5.5h18M3 12h18M3 18.5h18' },
-  { id: 'outline', label: 'Outline', glyph: 'M4 6h4M4 12h4M4 18h4M11 6h9M11 12h9M11 18h9' },
+  {
+    id: 'files',
+    label: 'Files',
+    glyph: 'M3 7.2a1.8 1.8 0 0 1 1.8-1.8h3.6l2 2.4h7.8A1.8 1.8 0 0 1 20 9.6v8.6a1.8 1.8 0 0 1-1.8 1.8H4.8A1.8 1.8 0 0 1 3 18.2Z',
+  },
+  {
+    id: 'outline',
+    label: 'Outline',
+    glyph: 'M4 6h5M4 12h5M4 18h5M12 6h8M12 12h8M12 18h8',
+  },
   { id: 'search', label: 'Search', glyph: 'M10.5 17a6.5 6.5 0 1 0 0-13 6.5 6.5 0 0 0 0 13ZM15.5 15.5 21 21' },
 ]
 
@@ -24,12 +39,19 @@ export function Rail({ panel, onSelect, theme, onToggleTheme, onSettings }: Rail
       className="flex shrink-0 flex-col items-center gap-1 py-3"
       style={{ width: 'var(--rail)', background: 'var(--surface)', borderRight: '1px solid var(--rule)' }}
     >
+      {/* Wordmark. A letter, not the shell glyph: at 28px a detailed mark turns to mush,
+          and the shell already carries the identity down the gutter on every screen. */}
       <div
-        className="mb-3 grid h-7 w-7 place-items-center rounded-[7px] text-[13px] font-semibold"
-        style={{ background: 'var(--accent)', color: '#fff' }}
+        className="mb-3 grid h-7 w-7 place-items-center rounded-[7px] text-[14px] leading-none"
+        style={{
+          background: 'var(--accent)',
+          color: 'var(--accent-ink)',
+          fontFamily: 'var(--font-display)',
+          fontWeight: 700,
+        }}
         aria-hidden
       >
-        B
+        V
       </div>
 
       {ITEMS.map((item) => {

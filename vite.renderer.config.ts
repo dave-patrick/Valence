@@ -1,6 +1,7 @@
 import { resolve } from 'node:path'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import tailwindcss from '@tailwindcss/vite'
 
 /**
  * Renderer-only dev server.
@@ -11,10 +12,14 @@ import react from '@vitejs/plugin-react'
  *
  * The house fonts (Source Sans 3, IBM Plex Mono, Chakra Petch) come from the stylesheet link
  * in index.html, matching Quantos' families and weights.
+ *
+ * The Tailwind plugin is not optional. `@import 'tailwindcss'` is inert without it — the
+ * package on its own only ships the engine's entry CSS, so every utility class in the JSX
+ * silently becomes a no-op and the layout collapses into unstyled block flow.
  */
 export default defineConfig({
   root: resolve(import.meta.dirname, 'src/renderer'),
-  plugins: [react()],
+  plugins: [react(), tailwindcss()],
   resolve: {
     alias: {
       '@core': resolve(import.meta.dirname, 'src/core'),
