@@ -609,6 +609,17 @@ export function App() {
           return
         }
 
+        case 'edit.copyMarkdown':
+          return void platform.clipboard.writeText(source)
+        case 'edit.copyHtml':
+          return void renderToHtml(source, { mode: theme }).then((r) =>
+            platform.clipboard.writeHtml(r.html),
+          )
+        case 'edit.copyPlain':
+          return void platform.clipboard.writeText(
+            source.replace(/[#*_`\[\]!\(\)]/g, '').replace(/\n{3,}/g, '\n\n'),
+          )
+
         case 'view.hybrid':
           return setView('hybrid')
         case 'view.source':

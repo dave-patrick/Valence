@@ -178,6 +178,9 @@ export const COMMANDS: readonly CommandDef[] = [
   { id: 'file.export', title: 'Export', group: 'File', keys: 'Ctrl E', keywords: 'pdf word docx epub latex html' },
   { id: 'file.close', title: 'Close document', group: 'File', keys: 'Ctrl W' },
   { id: 'file.reveal', title: 'Reveal in file manager', group: 'File', keywords: 'finder explorer folder' },
+  { id: 'edit.copyMarkdown', title: 'Copy as Markdown', group: 'Edit', keywords: 'copy export text clip' },
+  { id: 'edit.copyHtml', title: 'Copy as HTML', group: 'Edit', keywords: 'copy export rich clip' },
+  { id: 'edit.copyPlain', title: 'Copy as plain text', group: 'Edit', keywords: 'copy clip text' },
 
   // View
   { id: 'view.hybrid', title: 'View: hybrid', group: 'View', keywords: 'preview rich formatted' },
@@ -207,7 +210,7 @@ export const COMMANDS: readonly CommandDef[] = [
 ]
 
 /** Groups in the order the palette should list them when nothing is typed. */
-export const COMMAND_GROUPS = ['File', 'View', 'Panel', 'Writing', 'Tab', 'App'] as const
+export const COMMAND_GROUPS = ['File', 'Edit', 'View', 'Panel', 'Writing', 'Tab', 'App'] as const
 
 /** Case-insensitive lookup, for tests and for dispatch assertions. */
 export function commandById(id: string): CommandDef | undefined {
