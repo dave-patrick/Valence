@@ -3,6 +3,7 @@ import type { PanelId } from '@/App'
 import type { OutlineEntry } from '@features/outline/outline'
 import type { Backlink } from '@core/wiki'
 import { FileTree } from '@features/files/FileTree'
+import { FileList } from '@features/files/FileList'
 import { Backlinks } from '@features/wiki/Backlinks'
 import { dirname } from '@shared/path'
 
@@ -76,8 +77,9 @@ export function Sidebar({
           </div>
         )}
         {kind === 'search' && <SearchPanel source={source} />}
+
         {kind === 'files' && (
-          <FileTree
+          <FilesPanel
             root={workspaceRoot || (activePath ? dirname(activePath) : null)}
             activePath={activePath}
             onOpen={onOpenFile}
@@ -193,3 +195,42 @@ function Empty({ children }: { children: React.ReactNode }) {
     </p>
   )
 }
+
+  export function FilesPanel(props: { root: string | null; activePath: string | null; onOpen: (p: string) => void; onWorkspaceOpen?: () => void; onError: (m: string) => void }) {
+    const [view, setView] = useState<'tree' | 'list'>('tree')
+    return (
+      <div>
+        <div className="flex items-center gap-1 px-3 pb-2">
+          {(['tree', 'list'] as const).map((v) => (
+            <button
+              key={v}
+              onClick={() => setView(v)}
+              className="rounded-[var(--radius-sm)] px-2 py-1 text-[11.5px] transition-colors duration-100"
+              style={{
+                background: view === v ? 'var(--bg-active)' : 'transparent',
+                color: view === v ? 'var(--ink)' : 'var(--ink-3)',
+              }}
+            >
+              {v === 'tree' ? 'Tree' : 'List'}
+            </button>
+          ))}
+        </div>
+        {view === 'tree' ? (
+          <FileTree
+            root={props.root}
+            activePath={props.activePath}
+            onOpen={props.onOpen}
+            onWorkspaceOpen={props.onWorkspaceOpen}
+            onError={props.onError}
+          />
+        ) : (
+          <FileList
+            root={props.root}
+            activePath={props.activePath}
+            onOpen={props.onOpen}
+            onError={props.onError}
+          />
+        )}
+      </div>
+    )
+  }
