@@ -16,12 +16,25 @@ export default defineConfig({
   main: {
     plugins: [externalizeDepsPlugin()],
     resolve: { alias },
-    build: { rollupOptions: { input: resolve('src/main/index.ts') } },
+    build: {
+      rollupOptions: {
+        input: resolve('src/main/index.ts'),
+        // Electron's own module must never be bundled: it is provided by the runtime.
+        // Bundling it pulls in the npm install shim, which tries to download the
+        // binary at launch and prints "Downloading Electron binary..." forever.
+        external: ['electron'],
+      },
+    },
   },
   preload: {
     plugins: [externalizeDepsPlugin()],
     resolve: { alias },
-    build: { rollupOptions: { input: resolve('src/preload/index.ts') } },
+    build: {
+      rollupOptions: {
+        input: resolve('src/preload/index.ts'),
+        external: ['electron'],
+      },
+    },
   },
   renderer: {
     root: resolve('src/renderer'),
