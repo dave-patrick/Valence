@@ -28,3 +28,8 @@ coverage/
 
 # Never commit real documents — this is a note-taking app, and your notes are yours.
 *.local.md
+# Local run logs
+out.txt
+err.txt
+electron.log
+
