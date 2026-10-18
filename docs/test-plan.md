@@ -5,11 +5,19 @@ anything that does not matter to you.
 
 ## 0. Getting started
 
-1. Download `Valence-0.1.0-win.zip` from the release page.
-2. Extract anywhere. **Do not run it from inside the zip** — Windows Defender SmartScreen blocks
-   that path; extract first.
-3. Run `Valence.exe`. No install, no registry entries, no Start menu entry.
-4. On first launch you get the welcome document. The window title should read "Valence".
+Builds are staged locally, not downloaded. `pnpm stage` produces a verified, unpacked app at
+**`C:\Users\davem\Valence`** — run `Valence.exe` from there.
+
+Nothing is pushed to GitHub until that build has been tested and approved. Releases are cut
+by tagging, so a tag means "this exact tree was tested and is good".
+
+1. Run `C:\Users\davem\Valence\Valence.exe`. No install, no registry entries, no Start menu entry.
+2. On first launch you get the welcome document. The window title should read "Valence".
+3. If a red banner reading **"Valence cannot reach your files"** appears at the top, stop — the
+   preload failed and nothing will be written to disk.
+
+To delete it, remove the folder. Your notes and settings are untouched; settings live in
+`%APPDATA%\valence`.
 
 ## 1. Launch and shell (2 min)
 

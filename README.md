@@ -60,7 +60,23 @@ pnpm dev          # Electron
 pnpm dev:web      # renderer in a browser, backed by the in-memory platform
 pnpm test         # round-trip + purity + app smoke
 pnpm typecheck
+pnpm stage        # build, unpack and verify a Windows build at C:\Users\davem\Valence
 ```
+
+### How a release happens
+
+```
+pnpm stage   ->  C:\Users\davem\Valence\Valence.exe   you test this
+you approve  ->  git tag v0.1.x && git push --tags    CI builds and publishes
+```
+
+`pnpm stage` wipes `out/` and `release/` first, because a stale artifact there once made a
+probe report against a build that no longer existed. It finishes by running the packaged-app
+verifier, which launches the app and fails unless the window opens, the preload bridge loads,
+a file round-trips through it, and nothing is logged on the way up.
+
+Nothing reaches GitHub until a build has been tested and approved. A tag means "this exact
+tree was tested and is good", and CI will not publish a tree that does not start.
 
 `pnpm dev:web` exists because the editor core must never need a shell to work -- it runs against a `localStorage` platform implementation, which also makes the UI easy to iterate on.
 

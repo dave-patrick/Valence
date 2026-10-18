@@ -51,10 +51,27 @@ child.stdout.on('data', (d) => (stderr += d))
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
 async function cleanup(code) {
-  try {
-    child.kill()
-  } catch {
-    /* already gone */
+  // Kill the whole tree, not just the parent. On Windows `child.kill()` leaves the renderer,
+  // GPU and utility processes running, and those keep app.asar mapped -- so the next run
+  // fails to replace the staged folder with EPERM. This leaked a process tree per run
+  // until the destination could not be written to at all.
+  if (process.platform === 'win32') {
+    await new Promise((res) => {
+      const k = spawn('taskkill', ['/F', '/T', '/PID', String(child.pid)], { stdio: 'ignore' })
+      k.on('exit', () => res())
+      k.on('error', () => res())
+      setTimeout(res, 4000)
+    })
+  } else {
+    try {
+      process.kill(-child.pid, 'SIGKILL')
+    } catch {
+      try {
+        child.kill('SIGKILL')
+      } catch {
+        /* already gone */
+      }
+    }
   }
   await sleep(500)
   process.exit(code)
