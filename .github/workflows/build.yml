@@ -53,7 +53,10 @@ jobs:
         with:
           name: valence-${{ matrix.os }}
           path: ${{ matrix.artifact }}
-          if-no-files-found: warn
+          # A build that produces no artifact is a failed release, not a warning. v0.1.4
+          # shipped green with no Windows build at all because the glob pointed at the old
+          # output name and this step shrugged. Anyone downloading was handed nothing.
+          if-no-files-found: error
 
   release:
     needs: build
@@ -68,5 +71,6 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: artifacts/**/*
+          body_path: RELEASE-NOTES.md
           draft: false
           prerelease: false
