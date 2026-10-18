@@ -62,12 +62,10 @@ jobs:
   # opens, the preload bridge loads, and a file round-trips through it -- the three failures
   # that shipped to users while every other check stayed green.
   #
-  # Non-blocking for now: the runner setup for a headless Linux Electron has not been proven
-  # on this pipeline yet, and a flaky gate that stops releases is worse than no gate. Promote
-  # it to blocking once it has run green on this workflow.
+  # This ran green under xvfb on v0.1.8, so it is a blocking gate: if the app cannot start,
+  # there is no release.
   verify:
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -91,7 +89,7 @@ jobs:
         run: xvfb-run -a node scripts/verify-package.mjs release/linux-unpacked/valence
 
   release:
-    needs: build
+    needs: [build, verify]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
     steps:
