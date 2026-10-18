@@ -22,7 +22,7 @@ import { fileURLToPath } from 'node:url'
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const DEFAULT_DEST = 'C:\\Users\\davem\\Valence'
 
-const dest = resolve(process.argv[2] && !process.argv[2].startsWith('--') ? process.argv[2] : DEFAULT_DEST)
+let dest = resolve(process.argv[2] && !process.argv[2].startsWith('--') ? process.argv[2] : DEFAULT_DEST)
 const skipBuild = process.argv.includes('--no-build')
 
 const IS_WIN = process.platform === 'win32'
@@ -64,22 +64,6 @@ function spawnClean(command, args, onFail) {
   })
 }
 
-/** Replace the destination with a clean copy of the build. */
-function replaceDestination(target, zipPath) {
-  try {
-    rmSync(target, { recursive: true, force: true })
-  } catch (e) {
-    // A Valence left running from a previous test still has app.asar mapped, and Windows
-    // will not let it be replaced. Delivering the build anyway beats refusing to deliver it:
-    // the files that matter are overwritten by Expand-Archive -Force. Say so plainly,
-    // because a stale file surviving here is exactly how a "fixed" build gets re-tested.
-    console.warn(`\n  WARNING: could not clear ${target}`)
-    console.warn(`  Reason: ${e.code ?? e.message}`)
-    console.warn('  A Valence from a previous session is probably still running. Close it.')
-    console.warn('  Extracting over the top; anything no longer in the build will survive.\n')
-  }
-  return extractZip(zipPath, target)
-}
 /** Node has no built-in unzip. PowerShell is the reliable option on Windows. */
 async function extractZip(zipPath, target) {
   mkdirSync(target, { recursive: true })
@@ -138,7 +122,30 @@ function assertStagedIsFresh(builtAsar, stagedAsar) {
 }
 
 console.log(`  extracting ${zip}...`)
-await replaceDestination(dest, join(releaseDir, zip))
+
+// If a Valence from an earlier session holds app.asar locked, rmSync fails and
+// neither deletion nor Expand-Archive -Force can replace it. The freshness
+// proof below works on whichever folder we land in, so try a numbered
+// alternative instead of extracting over a locked (possibly stale) build.
+let attempt = 1
+while (true) {
+  try {
+    rmSync(dest, { recursive: true, force: true })
+    break
+  } catch (e) {
+    if (attempt > 10) {
+      throw new Error(
+        `cannot clear ${dest}: ${e.code ?? e.message}\n` +
+          `Close any running Valence and re-run.`,
+      )
+    }
+    const next = `${dest}-${attempt}`
+    console.warn(`\n  ${dest} is locked; staging at ${next} instead\n`)
+    dest = next
+    attempt++
+  }
+}
+await extractZip(join(releaseDir, zip), dest)
 assertStagedIsFresh(
   join(releaseDir, 'win-unpacked', 'resources', 'app.asar'),
   join(dest, 'resources', 'app.asar'),
