@@ -16,7 +16,7 @@
 
 import { describe, expect, it } from 'vitest'
 import { existsSync, readFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
 import config from '../electron.vite.config'
 import { preloadFilename, preloadPath, resolveDataPath } from '../src/main/paths'
 
@@ -116,8 +116,11 @@ describe('app data paths', () => {
   const USER_DATA = '/home/u/.config/Valence'
 
   it('leaves absolute paths alone', () => {
-    expect(resolveDataPath('/notes/a.md', USER_DATA)).toBe('/notes/a.md')
-    expect(resolveDataPath('C:\\notes\\a.md', USER_DATA)).toBe('C:\\notes\\a.md')
+    // Built with resolve() rather than hardcoded: `path.isAbsolute` is platform-specific,
+    // so 'C:\\notes\\a.md' is absolute on Windows and a relative filename on Linux. Using a
+    // literal here passed locally and failed on every non-Windows runner.
+    const absolute = resolve('/notes/a.md')
+    expect(resolveDataPath(absolute, USER_DATA)).toBe(absolute)
   })
 
   it('puts relative app state in the user data directory', () => {
