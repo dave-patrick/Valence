@@ -7,7 +7,7 @@
  * fully functional with no shell. The core never has to care which it got.
  */
 
-import type { Platform } from './types'
+import type { Platform, UnsavedChoice } from './types'
 import { createWebPlatform } from './web'
 
 export interface ValenceBridge {
@@ -25,13 +25,16 @@ export interface ValenceBridge {
   win: {
     setTitle(title: string): Promise<void>
     setDirty(dirty: boolean): Promise<void>
-    onCloseRequested(cb: () => void): () => void
+    registerCloseGuard(): void
+    onCloseRequested(cb: (id: number) => void): () => void
+    answerClose(id: number, allow: boolean): void
   }
   dialog: {
     openFile(): Promise<unknown>
     openFolder(): Promise<unknown>
     save(suggested: string): Promise<string | null>
     confirm(message: string, detail?: string): Promise<boolean>
+    unsaved(title: string): Promise<UnsavedChoice>
   }
   menu: {
     build(items: unknown): Promise<void>
@@ -103,8 +106,10 @@ export function createNodePlatform(): Platform {
       setTitle: (t) => void b.win.setTitle(t),
       setDirty: (d) => void b.win.setDirty(d),
       onCloseGuard: (guard) => {
-        b.win.onCloseRequested(() => void guard())
-        return () => {}
+        b.win.registerCloseGuard()
+        return b.win.onCloseRequested((id) => {
+          void guard().then((allow) => b.win.answerClose(id, allow))
+        })
       },
     },
 
@@ -113,6 +118,7 @@ export function createNodePlatform(): Platform {
       openFolder: async () => (await b.dialog.openFolder()) as never,
       save: (s) => b.dialog.save(s),
       confirm: (m, d) => b.dialog.confirm(m, d),
+      unsaved: (t) => b.dialog.unsaved(t),
     },
 
     menu: {

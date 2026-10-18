@@ -33,3 +33,7 @@ out.txt
 err.txt
 electron.log
 
+# Version history. Valence writes this beside each note on every save, so opening someone's
+# notes folder as a workspace fills their repository with snapshot history.
+.valence/
+

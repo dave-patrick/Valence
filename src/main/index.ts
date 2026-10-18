@@ -8,7 +8,6 @@ const isDev = !app.isPackaged
 
 let main: BrowserWindow | null = null
 const watchers = new Map<string, FSWatcher>()
-let closeGuard: (() => Promise<boolean>) | null = null
 
 function createWindow(): void {
   main = new BrowserWindow({
@@ -32,13 +31,15 @@ function createWindow(): void {
   main.once('ready-to-show', () => main?.show())
 
   main.on('close', (e) => {
-    if (!closeGuard) return
+    if (closingNow || !closeGuardReady) return
     e.preventDefault()
-    void closeGuard().then((ok) => {
-      if (ok) {
-        closeGuard = null
-        main?.close()
-      }
+    const id = nextCloseId++
+    const answer = new Promise<boolean>((resolve) => pendingClose.set(id, resolve))
+    main?.webContents.send('win:close-request', id)
+    void answer.then((allow) => {
+      if (!allow) return
+      closingNow = true
+      main?.close()
     })
   })
 
@@ -161,9 +162,32 @@ ipcMain.handle('win:dirty', (_e, dirty: boolean) => {
   if (main) main.setDocumentEdited?.(dirty)
 })
 
-ipcMain.on('win:closeGuard', (e) => {
-  const handler = e as unknown as (() => Promise<boolean>) | null
-  closeGuard = handler
+/**
+ * Window close guard.
+ *
+ * The renderer decides whether the window may close; main only enforces it. This used to be
+ * dead code in three separate ways at once: no renderer ever registered a guard, nothing ever
+ * sent `win:closeGuard`, and the handler stored the IpcMainEvent in the slot meant for a
+ * function. The result was that closing the window discarded unsaved work without asking.
+ *
+ * Closing is a request/response: main blocks the close, sends an id, and waits. `closingNow`
+ * lets the second, permitted close through instead of asking again forever.
+ */
+let closeGuardReady = false
+let closingNow = false
+let nextCloseId = 1
+const pendingClose = new Map<number, (allow: boolean) => void>()
+
+ipcMain.on('win:closeGuard', () => {
+  closeGuardReady = true
+})
+
+ipcMain.on('win:close-answer', (_e, id: number, allow: boolean) => {
+  const resolve = pendingClose.get(id)
+  if (resolve) {
+    pendingClose.delete(id)
+    resolve(allow)
+  }
 })
 
 ipcMain.handle('dialog:openFile', async () => {
@@ -197,6 +221,22 @@ ipcMain.handle('dialog:confirm', async (_e, message: string, detail: string) => 
     detail,
   })
   return r.response === 1
+})
+
+ipcMain.handle('dialog:unsaved', async (_e, title: string) => {
+  // Order matters on Windows: Electron maps the first button to the default action and the
+  // last to Escape. Cancel is last so Escape always means "stay".
+  const r = await dialog.showMessageBox({
+    type: 'warning',
+    title: 'Unsaved changes',
+    message: `Save changes to ${title}?`,
+    detail: "If you don't save, your changes will be lost.",
+    buttons: ['Save', "Don't Save", 'Cancel'],
+    defaultId: 0,
+    cancelId: 2,
+    noLink: true,
+  })
+  return (['save', 'discard', 'cancel'] as const)[r.response] ?? 'cancel'
 })
 
 ipcMain.on('menu:build', (_e, items: unknown) => {

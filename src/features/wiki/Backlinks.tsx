@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { displayName, stripExtension } from './display'
 import type { Backlink } from '@core/wiki'
+import { basenameOf } from '@shared/path'
 
 interface BacklinksProps {
   /** Links pointing at the active document. */
@@ -48,7 +49,7 @@ export function Backlinks({ backlinks, activePath, onOpen }: BacklinksProps) {
             style={{ color: 'var(--ink-2)' }}
             title={from}
           >
-            {stripExtension(from.split('/').pop() ?? from)}
+            {stripExtension(basenameOf(from))}
           </button>
           {links.length > 1 && (
             <span className="pl-7 pb-1 text-[11px] leading-tight" style={{ color: 'var(--ink-3)' }}>

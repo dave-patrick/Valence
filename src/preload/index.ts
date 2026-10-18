@@ -22,11 +22,21 @@ const api = {
   win: {
     setTitle: (title: string) => ipcRenderer.invoke('win:title', title),
     setDirty: (dirty: boolean) => ipcRenderer.invoke('win:dirty', dirty),
-    onCloseRequested: (cb: () => void) => {
-      const handler = () => cb()
-      ipcRenderer.on('win:close', handler)
-      return () => ipcRenderer.off('win:close', handler)
+    /**
+     * Tell main this renderer wants to be consulted before the window closes, then answer
+     * each request by id.
+     *
+     * The round trip is: main preventDefault()s the close, sends `win:close-request` with an
+     * id, and waits for `win:close-answer` carrying that id. Passing the id back is what
+     * keeps two close attempts from resolving each other.
+     */
+    registerCloseGuard: () => ipcRenderer.send('win:closeGuard'),
+    onCloseRequested: (cb: (id: number) => void) => {
+      const handler = (_e: unknown, id: number) => cb(id)
+      ipcRenderer.on('win:close-request', handler)
+      return () => ipcRenderer.off('win:close-request', handler)
     },
+    answerClose: (id: number, allow: boolean) => ipcRenderer.send('win:close-answer', id, allow),
   },
   dialog: {
     openFile: () => ipcRenderer.invoke('dialog:openFile'),
@@ -34,6 +44,7 @@ const api = {
     save: (suggested: string) => ipcRenderer.invoke('dialog:save', suggested),
     confirm: (message: string, detail?: string) =>
       ipcRenderer.invoke('dialog:confirm', message, detail ?? ''),
+    unsaved: (title: string) => ipcRenderer.invoke('dialog:unsaved', title),
   },
   menu: {
     build: (items: unknown) => ipcRenderer.send('menu:build', items),

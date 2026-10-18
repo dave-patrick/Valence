@@ -117,6 +117,11 @@ export function createWebPlatform(): Platform {
       async confirm(message) {
         return window.confirm(message)
       },
+      async unsaved() {
+        // The browser build has no modal with three buttons worth building. window.confirm
+        // gives two, and the only safe reading of it is "the user did not choose to leave".
+        return 'cancel'
+      },
     },
 
     menu: {

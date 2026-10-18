@@ -161,6 +161,30 @@ const checks = {
       return true
     } catch (e) { return 'threw: ' + e.message }
   })()`),
+  'bridge exposes the full surface': await evaluate(`(() => {
+    if (!window.valence) return 'no bridge'
+    // The renderer is bundled from the same tree as the preload script, so a stale preload
+    // hands back undefined instead of throwing. The window close guard went missing exactly
+    // this way: the renderer never called anything, so nothing failed, and closing the window
+    // discarded unsaved work. Naming the API turns a drift into a visible failure.
+    const required = {
+      fs: ['read', 'write', 'writeBinary', 'stat', 'exists', 'listDir', 'watch', 'unwatch', 'reveal'],
+      win: ['setTitle', 'setDirty', 'registerCloseGuard', 'onCloseRequested', 'answerClose'],
+      dialog: ['openFile', 'openFolder', 'save', 'confirm', 'unsaved'],
+      menu: ['build', 'onCommand'],
+      clip: ['writeText', 'writeHtml', 'writeImage', 'read'],
+      exportAs: ['formats', 'toPdf', 'pandoc', 'hasPandoc'],
+    }
+    const missing = []
+    for (const [group, methods] of Object.entries(required)) {
+      if (!window.valence[group]) { missing.push(group); continue }
+      for (const m of methods) {
+        if (typeof window.valence[group][m] !== 'function') missing.push(group + '.' + m)
+      }
+    }
+    return missing.length ? 'missing: ' + missing.join(', ') : true
+  })()`),
+
   'local chunks resolve': await evaluate(`(async () => {
     const urls = [...document.querySelectorAll('script[src], link[href]')]
       .map(e => e.getAttribute('src') || e.getAttribute('href'))

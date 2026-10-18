@@ -39,6 +39,15 @@ export interface ExportFormat {
   pandoc?: boolean
 }
 
+/**
+ * What the user chose when closing a document with unsaved changes.
+ *
+ * Three ways, not two. Offering only "Discard" and "Cancel" makes saving impossible from the
+ * prompt, so the user has to cancel, hunt for Ctrl+S, then close again -- at the exact moment
+ * they are trying to leave.
+ */
+export type UnsavedChoice = 'save' | 'discard' | 'cancel'
+
 export interface Platform {
   readonly kind: 'electron' | 'tauri' | 'web'
 
@@ -66,6 +75,7 @@ export interface Platform {
     openFolder(): Promise<OpenFileResult>
     save(suggestedName: string): Promise<string | null>
     confirm(message: string, detail?: string): Promise<boolean>
+    unsaved(title: string): Promise<UnsavedChoice>
   }
 
   menu: {

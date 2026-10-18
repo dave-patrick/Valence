@@ -519,23 +519,69 @@ export function App() {
     platform.window.setTitle(`${basenameOf(target)} — Valence`)
   }, [platform, session])
 
-  const closeTab = useCallback(
+  /**
+ * Resolve a document with unsaved changes into "may I close it".
+ *
+ * Returns true when closing is allowed. Offers Save, Don't Save and Cancel, because a prompt
+ * with only Discard and Cancel forces the user to cancel, find Ctrl+S, then close again --
+ * precisely when they are trying to leave. If they choose Save and the save is cancelled at
+ * the file picker, or fails, the document stays open with its changes intact.
+ */
+const resolveUnsaved = useCallback(
+  async (doc: Session['documents'][number]): Promise<boolean> => {
+    const choice = await platform.dialog.unsaved(doc.title)
+    if (choice === 'cancel') return false
+    if (choice === 'discard') return true
+
+    const target = doc.path ?? (await platform.dialog.save(`${slug(titleOf(doc.source))}.md`))
+    if (!target) return false
+    try {
+      await platform.fs.write(target, doc.source)
+    } catch {
+      await platform.dialog.confirm(
+        'Could not save',
+        'That file could not be written. The document is still open and unsaved.',
+      )
+      return false
+    }
+    setSession((s) => markSaved(s, doc.id, target))
+    platform.window.setDirty(false)
+    return true
+  },
+  [platform],
+)
+
+const closeTab = useCallback(
     async (id: string) => {
       const target = byId(session, id)
       if (!target) return
-      if (isDirty(target)) {
-        const ok = await platform.dialog.confirm(
-          `Close ${target.title}?`,
-          'This document has unsaved changes. Closing it will discard them.',
-        )
-        if (!ok) return
-      }
+      if (isDirty(target) && !(await resolveUnsaved(target))) return
       setSession((s) => closeDoc(s, id))
     },
-    [platform, session],
+    [resolveUnsaved, session],
   )
 
-  const saveAll = useCallback(async () => {
+  /**
+ * Register the window close guard.
+ *
+ * Previously absent entirely: `onCloseGuard` existed on the platform interface and in main,
+ * but no renderer ever called it, so closing the window discarded unsaved work without
+ * asking. Every dirty document has to be resolved; declining any one of them cancels the
+ * close, because quitting means leaving all of them, not just the last.
+ */
+useEffect(
+  () =>
+    platform.window.onCloseGuard(async () => {
+      for (const doc of session.documents) {
+        if (!isDirty(doc)) continue
+        if (!(await resolveUnsaved(doc))) return false
+      }
+      return true
+    }),
+  [platform, resolveUnsaved, session.documents],
+)
+
+const saveAll = useCallback(async () => {
     for (const d of session.documents) {
       if (!isDirty(d)) continue
       const target = d.path ?? (await platform.dialog.save(`${slug(titleOf(d.source))}.md`))
