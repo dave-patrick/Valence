@@ -55,7 +55,6 @@ function createWindow(): void {
 }
 
 app.whenReady().then(() => {
-  buildMenu()
   createWindow()
 
   app.on('activate', () => {
@@ -294,56 +293,13 @@ ipcMain.handle('export:pandoc', async (_e, contents: string, from: string, to: s
 })
 
 /* ── Menu ────────────────────────────────────────────────────────
-   Built from a spec the renderer sends, so shortcuts live next to
-   the commands they invoke instead of being duplicated here. */
+   Valence has no menu bar: every command runs from the palette
+   (Ctrl+P) or a keyboard shortcut instead. Keeping a File / Edit /
+   View / Window shell menu would duplicate the palette and steal
+   vertical space, which is the thing Typora and MarkText avoid.
 
-function buildMenu(): void {
-  const isMac = process.platform === 'darwin'
-  const template: Electron.MenuItemConstructorOptions[] = [
-    ...(isMac
-      ? ([{ role: 'appMenu' }] as Electron.MenuItemConstructorOptions[])
-      : []),
-    {
-      label: 'File',
-      submenu: [
-        { id: 'file.open', label: 'Open…', accelerator: 'CmdOrCtrl+O' },
-        { id: 'file.save', label: 'Save', accelerator: 'CmdOrCtrl+S' },
-        { type: 'separator' },
-        {
-          id: 'file.export',
-          label: 'Export…',
-          accelerator: 'CmdOrCtrl+E',
-        },
-        { type: 'separator' },
-        { role: 'close' },
-      ],
-    },
-    { role: 'editMenu' },
-    {
-      label: 'View',
-      submenu: [
-        { id: 'view.toggle', label: 'Toggle split', accelerator: 'CmdOrCtrl+\\' },
-        { id: 'view.cycle', label: 'Cycle views', accelerator: 'CmdOrCtrl+Alt+\\' },
-        { id: 'app.theme', label: 'Toggle theme', accelerator: 'CmdOrCtrl+/' },
-        { type: 'separator' },
-        { role: 'togglefullscreen' },
-        { role: 'toggleDevTools' },
-      ],
-    },
-    { role: 'windowMenu' },
-  ]
-  const menu = Menu.buildFromTemplate(template)
-  Menu.setApplicationMenu(menu)
-
-  // Forward the custom ids we assigned back to the renderer. Electron's MenuItem uses a
-  // writable `click` property rather than an event emitter.
-  for (const item of menu.items) {
-    for (const sub of item.submenu?.items ?? []) {
-      if (/^(file|view|app)\./.test(sub.id)) {
-        sub.click = () => main?.webContents.send('menu:command', sub.id)
-      }
-    }
-  }
-}
+   The `menu:build` handler below is intentionally left in place so
+   the renderer can replace the menu later if it wants one; nothing
+   calls it yet, so nothing is shown. */
 
 export { basename, dirname }
