@@ -10,7 +10,7 @@ import { StrataGutter } from '@ui/StrataGutter'
 import { TableToolbar } from '@ui/TableToolbar'
 import { TabBar, SettingsPanel } from '@ui/TabBar'
 import { WELCOME } from './welcome'
-import { getPlatform } from '@platform'
+import { getPlatform, bridgeStatus } from '@platform'
 import { parseMarkdown } from '@core/markdown/parse'
 import { serialiseMarkdown } from '@core/markdown/serialise'
 import { blocksToHtml, htmlToBlocks } from '@core/htmlBridge'
@@ -50,6 +50,7 @@ export type PanelId = 'files' | 'outline' | 'search' | null
 
 export function App() {
   const platform = useMemo(() => getPlatform(), [])
+  const bridgeMissing = useMemo(() => bridgeStatus().degraded, [])
 
   /* ── Settings ──────────────────────────────────────────────── */
 
@@ -800,6 +801,7 @@ export function App() {
 
   return (
     <div className="flex h-full flex-col" style={{ background: 'var(--bg)' }}>
+      {bridgeMissing && <BridgeFaultBanner />}
       {tabBar === 'top' && (
         <TabBar
           session={session}
@@ -1107,6 +1109,27 @@ function EditorPane({
 
 function basenameOf(p: string): string {
   return p.split(/[\\/]/).filter(Boolean).pop() ?? p
+}
+
+/**
+ * Shown only when Electron is present but the preload bridge did not load. Without this the
+ * app degrades to the in-memory platform and every disk feature fails silently, which reads
+ * as "the app works" right up until someone tries to save.
+ */
+function BridgeFaultBanner() {
+  return (
+    <div
+      role="alert"
+      className="flex items-center gap-2 px-3 py-2 text-sm"
+      style={{ background: 'var(--danger, #7f1d1d)', color: '#fff' }}
+    >
+      <strong className="font-semibold">Valence cannot reach your files.</strong>
+      <span>
+        The preload bridge failed to load, so this session is in memory only — nothing will be
+        written to disk. Restart the app; if it keeps happening, reinstall the build.
+      </span>
+    </div>
+  )
 }
 
 function titleOf(source: string): string {

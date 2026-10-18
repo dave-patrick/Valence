@@ -2,6 +2,7 @@ import { app, BrowserWindow, dialog, ipcMain, Menu, shell } from 'electron'
 import { readFile, writeFile, stat, readdir, mkdir } from 'node:fs/promises'
 import { watch, type FSWatcher } from 'node:fs'
 import { basename, dirname } from 'node:path'
+import { preloadPath } from './paths'
 
 const isDev = !app.isPackaged
 
@@ -20,7 +21,7 @@ function createWindow(): void {
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
     trafficLightPosition: { x: 14, y: 15 },
     webPreferences: {
-      preload: `${__dirname}/../preload/index.mjs`,
+      preload: preloadPath(__dirname),
       sandbox: false,
       contextIsolation: true,
       nodeIntegration: false,

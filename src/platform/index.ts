@@ -24,3 +24,5 @@ export function setPlatform(p: Platform): void {
 
 export type { Platform } from './types'
 export type { FileStat, OpenFileResult, MenuItemSpec, ExportFormat } from './types'
+export { bridgeStatus } from './bridge'
+export type { BridgeStatus } from './bridge'
