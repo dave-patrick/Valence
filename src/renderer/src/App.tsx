@@ -48,6 +48,111 @@ import {
 export type ViewMode = 'hybrid' | 'source' | 'split'
 export type PanelId = 'files' | 'outline' | 'search' | null
 
+/**
+ * Application menu dropdown, opened from the hamburger icon in the top-left.
+ *
+ * Replaces the menu bar that Typora / MarkText carry natively and Valence
+ * deliberately does not. Everything here is also reachable via Ctrl+P or a
+ * keyboard shortcut, but a visible icon makes the file commands discoverable
+ * without memorising shortcuts.
+ */
+function AppMenu({
+  open,
+  onClose,
+  anchor,
+  onNew,
+  onOpenFile,
+  onOpenWorkspace,
+  onSave,
+  onSaveAll,
+  onExport,
+  onHistory,
+  onSettings,
+  onTheme,
+  onCloseDoc,
+}: {
+  open: boolean
+  onClose: () => void
+  anchor: HTMLButtonElement | null
+  onNew: () => void
+  onOpenFile: () => void
+  onOpenWorkspace: () => void
+  onSave: () => void
+  onSaveAll: () => void
+  onExport: () => void
+  onHistory: () => void
+  onSettings: () => void
+  onTheme: () => void
+  onCloseDoc: () => void
+}) {
+  useEffect(() => {
+    if (!open || !anchor) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [open, anchor, onClose])
+
+  if (!open || !anchor) return null
+
+  const rect = anchor.getBoundingClientRect()
+
+  const items: Array<{ label: string; shortcut?: string; onClick: () => void } | { divider: true }> = [
+    { label: 'New document', shortcut: 'Ctrl N', onClick: onNew },
+    { label: 'Open file…', shortcut: 'Ctrl O', onClick: onOpenFile },
+    { label: 'Open workspace…', shortcut: 'Ctrl Shift O', onClick: onOpenWorkspace },
+    { divider: true },
+    { label: 'Save', shortcut: 'Ctrl S', onClick: onSave },
+    { label: 'Save all', shortcut: 'Ctrl Shift S', onClick: onSaveAll },
+    { label: 'Export…', shortcut: 'Ctrl E', onClick: onExport },
+    { divider: true },
+    { label: 'Version history', shortcut: 'Ctrl H', onClick: onHistory },
+    { label: 'Settings', shortcut: 'Ctrl ,', onClick: onSettings },
+    { label: 'Toggle theme', shortcut: 'Ctrl /', onClick: onTheme },
+    { divider: true },
+    { label: 'Close document', shortcut: 'Ctrl W', onClick: onCloseDoc },
+  ]
+
+  return (
+    <div
+      className="valence-appmenu"
+      style={{
+        position: 'fixed',
+        left: rect.left,
+        top: rect.bottom + 4,
+        minWidth: 210,
+        background: 'var(--surface)',
+        border: '1px solid var(--rule)',
+        borderRadius: '6px',
+        padding: '4px 0',
+        boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.45)',
+        zIndex: 60,
+      }}
+    >
+      {items.map((item, i) => {
+        if ('divider' in item) return <div key={`d-${i}`} className="border-t border-rule my-1" />
+        return (
+          <button
+            key={i}
+            onClick={(e) => {
+              e.preventDefault()
+              onClose()
+              item.onClick()
+            }}
+            className="flex w-full items-center gap-3 px-4 py-2 text-sm text-[var(--ink)] hover:bg-[var(--surface-2)] hover:text-[var(--accent)]"
+          >
+            <span>{item.label}</span>
+            {item.shortcut && (
+              <span className="ml-auto shrink-0 text-[var(--ink-3)] text-[11px]">{item.shortcut}</span>
+            )}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 export function App() {
   const platform = useMemo(() => getPlatform(), [])
   const bridgeMissing = useMemo(() => bridgeStatus().degraded, [])
@@ -68,6 +173,8 @@ export function App() {
   const [exportOpen, setExportOpen] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
   const [paletteOpen, setPaletteOpen] = useState(false)
+const [appMenuOpen, setAppMenuOpen] = useState(false)
+const appMenuAnchor = useRef<HTMLButtonElement>(null)
   const [slashMenu, setSlashMenu] = useState<{
     items: ReturnType<typeof searchSlashItems>
     range: { from: number; to: number; query: string }
@@ -848,14 +955,59 @@ const saveAll = useCallback(async () => {
   return (
     <div className="flex h-full flex-col" style={{ background: 'var(--bg)' }}>
       {bridgeMissing && <BridgeFaultBanner />}
-      {tabBar === 'top' && (
-        <TabBar
-          session={session}
-          position="top"
-          onSelect={(id) => setSession((s) => setActiveDoc(s, id))}
-          onClose={(id) => void closeTab(id)}
-        />
-      )}
+      <div className="flex items-center gap-2 px-2 py-1 h-10 border-b border-rule" style={{ background: 'var(--surface)' }}>
+        <button
+          ref={appMenuAnchor}
+          onClick={() => setAppMenuOpen((o) => !o)}
+          className="flex h-8 w-8 items-center justify-center rounded-[6px] hover:bg-[var(--surface-2)]"
+          aria-label="Menu"
+          title="Menu"
+        >
+          <svg
+            width="18"
+            height="12"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+          >
+            <path d="M3 6h18M3 12h18M3 18h18" />
+          </svg>
+        </button>
+        {tabBar === 'top' && (
+          <div className="flex-1 min-w-0">
+            <TabBar
+              session={session}
+              position="top"
+              onSelect={(id) => setSession((s) => setActiveDoc(s, id))}
+              onClose={(id) => void closeTab(id)}
+            />
+          </div>
+        )}
+        {appMenuOpen && (
+          <AppMenu
+            open={appMenuOpen}
+            onClose={() => setAppMenuOpen(false)}
+            anchor={appMenuAnchor.current}
+            onNew={() => void runCommand('file.new')}
+            onOpenFile={() => void runCommand('file.open')}
+            onOpenWorkspace={() => void runCommand('file.openWorkspace')}
+            onSave={() => void runCommand('file.save')}
+            onSaveAll={() => void runCommand('file.saveAll')}
+            onExport={() => void runCommand('file.export')}
+            onHistory={() => void runCommand('view.history')}
+            onSettings={() => setSettingsOpen(true)}
+            onTheme={() =>
+              patchSettings({ theme: theme === 'light' ? 'dark' : 'light' })
+            }
+            onCloseDoc={() => {
+              const active = activeDoc(session)
+              if (active) void closeTab(active.id)
+            }}
+          />
+        )}
+      </div>
 
       <div className="flex min-h-0 flex-1">
         <Rail

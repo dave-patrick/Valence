@@ -346,7 +346,7 @@
  * and cannot name. */
 
 .valence-tabs {
-  flex-shrink: 0;
+  width: 100%;
   background: var(--surface);
   border-bottom: 1px solid var(--rule);
   order: -1;
