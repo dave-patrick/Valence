@@ -298,8 +298,11 @@ ipcMain.handle('export:pandoc', async (_e, contents: string, from: string, to: s
    View / Window shell menu would duplicate the palette and steal
    vertical space, which is the thing Typora and MarkText avoid.
 
-   The `menu:build` handler below is intentionally left in place so
-   the renderer can replace the menu later if it wants one; nothing
+   Electron draws its own default menu bar unless we explicitly set
+   null, so we do that here. The `menu:build` handler stays so the
+   renderer can replace the menu later if it wants one; nothing
    calls it yet, so nothing is shown. */
+
+Menu.setApplicationMenu(null)
 
 export { basename, dirname }
