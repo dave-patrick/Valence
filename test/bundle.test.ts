@@ -18,7 +18,7 @@ import { describe, expect, it } from 'vitest'
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import config from '../electron.vite.config'
-import { preloadFilename, preloadPath } from '../src/main/paths'
+import { preloadFilename, preloadPath, resolveDataPath } from '../src/main/paths'
 
 const ROOT = join(__dirname, '..')
 
@@ -109,6 +109,31 @@ describe('preload is reachable from main', () => {
   it.skipIf(!existsSync(join(ROOT, 'out', 'preload')))('points at a file that exists', () => {
     const built = join(ROOT, 'out', 'preload', preloadFilename)
     expect(existsSync(built), `${preloadFilename} is not in the build output`).toBe(true)
+  })
+})
+
+describe('app data paths', () => {
+  const USER_DATA = '/home/u/.config/Valence'
+
+  it('leaves absolute paths alone', () => {
+    expect(resolveDataPath('/notes/a.md', USER_DATA)).toBe('/notes/a.md')
+    expect(resolveDataPath('C:\\notes\\a.md', USER_DATA)).toBe('C:\\notes\\a.md')
+  })
+
+  it('puts relative app state in the user data directory', () => {
+    expect(resolveDataPath('valence.settings', USER_DATA)).toBe(
+      join(USER_DATA, 'valence.settings'),
+    )
+  })
+
+  it('never falls back to the launch directory', () => {
+    // The bug: relative paths resolved against process.cwd(), so settings were written
+    // wherever the app was started from and could not be saved from a read-only folder.
+    // Compared against join() rather than a literal prefix, because join normalises
+    // separators per platform and this suite runs on Windows and Linux.
+    for (const rel of ['valence.settings', 'session.json', 'nested/dir/file.txt']) {
+      expect(resolveDataPath(rel, USER_DATA)).toBe(join(USER_DATA, rel))
+    }
   })
 })
 

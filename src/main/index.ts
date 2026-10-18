@@ -2,7 +2,7 @@ import { app, BrowserWindow, dialog, ipcMain, Menu, shell } from 'electron'
 import { readFile, writeFile, stat, readdir, mkdir } from 'node:fs/promises'
 import { watch, type FSWatcher } from 'node:fs'
 import { basename, dirname } from 'node:path'
-import { preloadPath } from './paths'
+import { preloadPath, resolveDataPath as resolvePath } from './paths'
 
 const isDev = !app.isPackaged
 
@@ -75,9 +75,23 @@ app.on('web-contents-created', (_e, contents) => {
 
 /* ── IPC ───────────────────────────────────────────────────────
    Every filesystem and shell operation lives here, in the main
-   process. The renderer never has Node access. */
+   process. The renderer never has Node access.
 
-ipcMain.handle('fs:read', async (_e, path: string) => readFile(path, 'utf8'))
+   Paths arrive in two flavours. Absolute paths are real files the
+   user chose and are used as given. Relative paths are the app's own
+   scratch state -- settings, session -- and resolve against the
+   per-user data directory.
+
+   Resolving those against `process.cwd()` instead is what the first
+   packaged build did: launching from anywhere scattered
+   `valence.settings` into that folder, and launching from a read-only
+   folder (Program Files, C:\) meant settings could not be saved. */
+
+function resolveDataPath(path: string): string {
+  return resolvePath(path, app.getPath('userData'))
+}
+
+ipcMain.handle('fs:read', async (_e, path: string) => readFile(resolveDataPath(path), 'utf8'))
 async function ensureParent(path: string): Promise<void> {
   const dir = dirname(path)
   if (!dir) return
@@ -89,34 +103,38 @@ async function ensureParent(path: string): Promise<void> {
 }
 
 ipcMain.handle('fs:write', async (_e, path: string, contents: string) => {
-  await ensureParent(path)
-  await writeFile(path, contents, 'utf8')
+  const target = resolveDataPath(path)
+  await ensureParent(target)
+  await writeFile(target, contents, 'utf8')
 })
 ipcMain.handle('fs:writeBinary', async (_e, path: string, data: ArrayBuffer) => {
-  await ensureParent(path)
-  await writeFile(path, Buffer.from(new Uint8Array(data)))
+  const target = resolveDataPath(path)
+  await ensureParent(target)
+  await writeFile(target, Buffer.from(new Uint8Array(data)))
 })
 ipcMain.handle('fs:stat', async (_e, path: string) => {
+  const target = resolveDataPath(path)
   try {
-    const s = await stat(path)
-    return { path, size: s.size, mtimeMs: s.mtimeMs, isDirectory: s.isDirectory() }
+    const s = await stat(target)
+    return { path: target, size: s.size, mtimeMs: s.mtimeMs, isDirectory: s.isDirectory() }
   } catch {
     return null
   }
 })
 ipcMain.handle('fs:exists', async (_e, path: string) => {
   try {
-    await stat(path)
+    await stat(resolveDataPath(path))
     return true
   } catch {
     return false
   }
 })
 ipcMain.handle('fs:list', async (_e, path: string) => {
+  const target = resolveDataPath(path)
   try {
-    const entries = await readdir(path, { withFileTypes: true })
+    const entries = await readdir(target, { withFileTypes: true })
     return entries.map((d) => ({
-      path: `${path}/${d.name}`,
+      path: `${target}/${d.name}`,
       size: 0,
       mtimeMs: 0,
       isDirectory: d.isDirectory(),
@@ -125,7 +143,7 @@ ipcMain.handle('fs:list', async (_e, path: string) => {
     return []
   }
 })
-ipcMain.handle('fs:reveal', (_e, path: string) => shell.showItemInFolder(path))
+ipcMain.handle('fs:reveal', (_e, path: string) => shell.showItemInFolder(resolveDataPath(path)))
 
 ipcMain.handle('fs:watch', (_e, path: string) => {
   if (watchers.has(path)) return

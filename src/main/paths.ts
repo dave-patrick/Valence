@@ -16,7 +16,7 @@
  * `preloadFilename` is asserted against the build output in `test/bundle.test.ts`.
  */
 
-import { join } from 'node:path'
+import { isAbsolute, join } from 'node:path'
 
 /**
  * Matches electron-vite's output for this project. With `"type": "module"` in package.json
@@ -26,4 +26,20 @@ export const preloadFilename = 'index.js'
 
 export function preloadPath(mainDir: string): string {
   return join(mainDir, '..', 'preload', preloadFilename)
+}
+
+/**
+ * Where a path from the renderer actually lives.
+ *
+ * Absolute paths are real files the user chose, and are returned untouched. Relative paths
+ * are the app's own scratch state -- settings, session -- and belong in the per-user data
+ * directory.
+ *
+ * Node would resolve those against `process.cwd()`, which is wherever the app happened to be
+ * launched from. That scattered `valence.settings` into the launch folder, and launching from
+ * somewhere read-only (Program Files, the root of a drive) meant settings could not be saved.
+ */
+export function resolveDataPath(path: string, userDataDir: string): string {
+  if (isAbsolute(path)) return path
+  return join(userDataDir, path)
 }
