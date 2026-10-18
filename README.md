@@ -5,6 +5,20 @@ on a modernised foundation.
 
 MIT.
 
+## Downloading
+
+Grab the latest build from the
+[releases page](https://github.com/dave-patrick/Valence/releases).
+
+| Platform | File | How to run |
+|---|---|---|
+| Windows | `Valence-0.1.0-win.zip` | Extract it anywhere, then run `Valence.exe` |
+| Linux | `Valence-0.1.0.AppImage` | `chmod +x`, then run it |
+| macOS | `Valence-0.1.0-arm64.dmg` | Open it, drag Valence to Applications |
+
+There is no installer. On Windows, extract the zip before running it — launching from
+inside the archive trips SmartScreen. To uninstall, delete the folder.
+
 ---
 
 ## Why this exists

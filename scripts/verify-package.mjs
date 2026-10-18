@@ -150,17 +150,32 @@ const checks = {
   'preload bridge loaded': await evaluate(`!!window.valence`),
   'bridge round-trips a file': await evaluate(`(async () => {
     if (!window.valence) return 'no bridge'
+    const name = '__verify-package-probe.txt'
     try {
-      await window.valence.fs.write('__verify.txt', 'valence-ok')
-      return (await window.valence.fs.read('__verify.txt')) === 'valence-ok' ? true : 'content mismatch'
+      await window.valence.fs.write(name, 'valence-ok')
+      const back = await window.valence.fs.read(name)
+      if (back !== 'valence-ok') return 'content mismatch'
+      // Truncate rather than delete: the bridge has no delete verb, and an empty probe
+      // file in the user data directory beats a growing one.
+      await window.valence.fs.write(name, '')
+      return true
     } catch (e) { return 'threw: ' + e.message }
   })()`),
-  'lazy chunks resolve': await evaluate(`(async () => {
-    const links = [...document.querySelectorAll('script[src], link[href]')]
+  'local chunks resolve': await evaluate(`(async () => {
+    const urls = [...document.querySelectorAll('script[src], link[href]')]
       .map(e => e.getAttribute('src') || e.getAttribute('href'))
       .filter(Boolean)
-    const results = await Promise.all(links.map(u => fetch(u).then(r => r.ok).catch(() => false)))
-    return results.length > 0 && results.every(Boolean)
+      // Only assets this build ships. The Google Fonts stylesheet is a network request and is
+      // expected to fail offline; counting it as a chunk turns a working offline build into a
+      // false failure.
+      .filter(u => !/^https?:/i.test(u))
+    if (!urls.length) return 'no local assets found'
+    const bad = []
+    for (const u of urls) {
+      const ok = await fetch(u).then(r => r.ok).catch(() => false)
+      if (!ok) bad.push(u)
+    }
+    return bad.length ? 'failed: ' + bad.join(', ') : true
   })()`),
 }
 
