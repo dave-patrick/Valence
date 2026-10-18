@@ -58,6 +58,38 @@ jobs:
           # output name and this step shrugged. Anyone downloading was handed nothing.
           if-no-files-found: error
 
+  # Building is not running. This job launches the packaged app and checks that the window
+  # opens, the preload bridge loads, and a file round-trips through it -- the three failures
+  # that shipped to users while every other check stayed green.
+  #
+  # Non-blocking for now: the runner setup for a headless Linux Electron has not been proven
+  # on this pipeline yet, and a flaky gate that stops releases is worse than no gate. Promote
+  # it to blocking once it has run green on this workflow.
+  verify:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Install Electron's system libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 \
+            libdrm2 libgtk-3-0 libgbm1 libasound2t64
+
+      - name: Package unpacked
+        run: pnpm build && npx electron-builder --linux --dir --publish never
+
+      - name: Launch it and check
+        run: xvfb-run -a node scripts/verify-package.mjs release/linux-unpacked/valence
+
   release:
     needs: build
     runs-on: ubuntu-latest

@@ -161,9 +161,24 @@ Create two files in the same folder, `A.md` and `B.md`. In A, type `[[B]]`. Save
 ## 12. Known gaps (do not file as bugs yet)
 
 - Mermaid diagrams may not render in this build (dev-mode latency was minutes; production should be faster, unverified).
-- No visual review has been done of the packaged build — layout is measured, not eyeballed.
+- Layout has been measured but never eyeballed. No one has looked at a rendered window.
 - Table toolbar pointer behaviour is unverified end-to-end (synthetic events cannot drive `posAtCoords`).
 - Print/PDF pagination is unexercised.
 - Pandoc paths require Pandoc installed.
 - Theme gallery is "paste into Custom CSS" only; no preset UI.
 - Plugin API, AI assistance, and version-history diff are the M5 leftovers.
+
+## 13. Already covered by the build probe
+
+These are machine-checked on every packaged build (`pnpm verify:package`), so if one of
+them is broken you will be told rather than having to notice:
+
+- The app launches and opens a window.
+- The preload bridge loads — this failed in every build before v0.1.7.
+- `window.valence` is present and a write/read round-trips through it.
+- No console errors and no uncaught exceptions during a cold start.
+- Tailwind utilities are actually applied in the packaged renderer.
+- Shiki's lazy grammar chunks resolve over `file://`.
+
+If you see a **red banner reading "Valence cannot reach your files"** at the top of the
+window, stop and report it: the preload failed and nothing will be saved to disk.
