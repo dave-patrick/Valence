@@ -246,14 +246,6 @@ describe('views over one document', () => {
 })
 
 describe('chrome', () => {
-  it('switches theme and records it on the document element', async () => {
-    await clickAndWait('theme toggle', '[aria-label="Switch to dark theme"]')
-    await waitFor(() => document.documentElement.dataset.theme === 'dark', 'dark theme')
-
-    await clickAndWait('theme toggle', '[aria-label="Switch to light theme"]')
-    await waitFor(() => document.documentElement.dataset.theme === 'light', 'light theme')
-  })
-
   it('opens and closes panels from the rail', async () => {
     await clickAndWait('search panel', '[aria-label="Search"]')
     await waitFor(

@@ -179,9 +179,9 @@ export const COMMANDS: readonly CommandDef[] = [
   { id: 'view.history', title: 'Version history', group: 'View', keys: 'Ctrl H' },
   { id: 'file.close', title: 'Close document', group: 'File', keys: 'Ctrl W' },
   { id: 'file.reveal', title: 'Reveal in file manager', group: 'File', keywords: 'finder explorer folder' },
-  { id: 'edit.copyMarkdown', title: 'Copy as Markdown', group: 'Edit', keywords: 'copy export text clip' },
-  { id: 'edit.copyHtml', title: 'Copy as HTML', group: 'Edit', keywords: 'copy export rich clip' },
-  { id: 'edit.copyPlain', title: 'Copy as plain text', group: 'Edit', keywords: 'copy clip text' },
+  { id: 'edit.copyMarkdown', title: 'Copy as Markdown', group: 'Edit', keywords: 'copy export text clip', keys: 'Ctrl Shift C' },
+  { id: 'edit.copyHtml', title: 'Copy as HTML', group: 'Edit', keywords: 'copy export rich clip', keys: 'Ctrl Shift H' },
+  { id: 'edit.copyPlain', title: 'Copy as plain text', group: 'Edit', keywords: 'copy clip text', keys: 'Ctrl Shift X' },
 
   // View
   { id: 'view.hybrid', title: 'View: hybrid', group: 'View', keywords: 'preview rich formatted' },

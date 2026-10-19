@@ -33,6 +33,58 @@ export function serialiseMarkdown(
   return { text, lossy }
 }
 
+/**
+ * Block state -> plain text.
+ *
+ * Used for "Copy as plain text". Strips all markdown syntax and decoration, keeping only
+ * the human-readable words. Structural blocks (headings, lists, thematic breaks) get
+ * lightweight plain-text markers; container blocks recurse into their children so nothing
+ * is silently dropped.
+ */
+export function plainText(blocks: AnyBlock[]): string {
+  const lines: string[] = []
+  for (const b of blocks) {
+    if (b.spans && b.spans.length > 0) {
+      lines.push(inlineText(b.spans))
+    }
+    if (b.children) {
+      const childText = plainText(b.children)
+      if (childText) lines.push(childText)
+    }
+    switch (b.kind) {
+      case 'thematic_break':
+        lines.push('---')
+        break
+      case 'math_block':
+        lines.push('$' + inlineText(b.spans ?? []) + '$')
+        break
+      case 'diagram':
+        lines.push('```' + b.attrs.kind + '\n' + inlineText(b.spans ?? []) + '\n```')
+        break
+      case 'front_matter':
+        lines.push('---')
+        break
+      case 'html_block':
+        lines.push('[html]')
+        break
+    }
+    if (b.kind === 'blockquote' && lines.length > 0) {
+      lines[lines.length - 1] = '> ' + lines[lines.length - 1]
+    }
+  }
+  return lines.join('\n').replace(/\n{3,}/g, '\n\n').trim()
+}
+
+function inlineText(spans: InlineSpan[]): string {
+  return spans
+    .map((s) => {
+      const image = s.marks.find((m) => m.type === 'image')
+      if (image) return (image as { alt?: string }).alt ?? ''
+      return s.text
+    })
+    .join('')
+}
+
 /* ──────────────────────────────────────────────────────────────
  * Blocks
  * ──────────────────────────────────────────────────────────────*/

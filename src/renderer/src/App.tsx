@@ -12,7 +12,7 @@ import { TabBar, SettingsPanel } from '@ui/TabBar'
 import { WELCOME } from './welcome'
 import { getPlatform, bridgeStatus } from '@platform'
 import { parseMarkdown } from '@core/markdown/parse'
-import { serialiseMarkdown } from '@core/markdown/serialise'
+import { serialiseMarkdown, plainText } from '@core/markdown/serialise'
 import { blocksToHtml, htmlToBlocks } from '@core/htmlBridge'
 import { renderToHtml } from '@core/render'
 import { computeStats } from '@features/stats/stats'
@@ -65,6 +65,9 @@ function AppMenu({
   onOpenWorkspace,
   onSave,
   onSaveAll,
+  onCopyMarkdown,
+  onCopyHtml,
+  onCopyPlain,
   onExport,
   onHistory,
   onSettings,
@@ -79,6 +82,9 @@ function AppMenu({
   onOpenWorkspace: () => void
   onSave: () => void
   onSaveAll: () => void
+  onCopyMarkdown: () => void
+  onCopyHtml: () => void
+  onCopyPlain: () => void
   onExport: () => void
   onHistory: () => void
   onSettings: () => void
@@ -105,6 +111,9 @@ function AppMenu({
     { divider: true },
     { label: 'Save', shortcut: 'Ctrl S', onClick: onSave },
     { label: 'Save all', shortcut: 'Ctrl Shift S', onClick: onSaveAll },
+    { label: 'Copy as Markdown', shortcut: 'Ctrl Shift C', onClick: onCopyMarkdown },
+    { label: 'Copy as HTML', shortcut: 'Ctrl Shift H', onClick: onCopyHtml },
+    { label: 'Copy as Plain Text', shortcut: 'Ctrl Shift P', onClick: onCopyPlain },
     { label: 'Export…', shortcut: 'Ctrl E', onClick: onExport },
     { divider: true },
     { label: 'Version history', shortcut: 'Ctrl H', onClick: onHistory },
@@ -875,9 +884,7 @@ const saveAll = useCallback(async () => {
             platform.clipboard.writeHtml(r.html),
           )
         case 'edit.copyPlain':
-          return void platform.clipboard.writeText(
-            source.replace(/[#*_`\[\]!\(\)]/g, '').replace(/\n{3,}/g, '\n\n'),
-          )
+          return void platform.clipboard.writeText(plainText(parseMarkdown(source).blocks))
 
         case 'view.hybrid':
           return setView('hybrid')
@@ -961,6 +968,9 @@ const saveAll = useCallback(async () => {
       if (mod && e.shiftKey && e.key === 'O') return runCommand('file.openWorkspace')
       if (mod && e.shiftKey && e.key === 'S') return runCommand('file.saveAll')
       if (mod && e.shiftKey && e.key === 'N') return runCommand('file.new')
+      if (mod && e.shiftKey && e.key === 'C') return runCommand('edit.copyMarkdown')
+      if (mod && e.shiftKey && e.key === 'H') return runCommand('edit.copyHtml')
+      if (mod && e.shiftKey && e.key === 'X') return runCommand('edit.copyPlain')
       if (mod && e.key === 's') return runCommand('file.save')
       if (mod && e.key === 'o') return runCommand('file.open')
       if (mod && e.key === '\\') return runCommand('panel.toggle')
@@ -1048,6 +1058,9 @@ const saveAll = useCallback(async () => {
             onOpenWorkspace={() => void runCommand('file.openWorkspace')}
             onSave={() => void runCommand('file.save')}
             onSaveAll={() => void runCommand('file.saveAll')}
+            onCopyMarkdown={() => void runCommand('edit.copyMarkdown')}
+            onCopyHtml={() => void runCommand('edit.copyHtml')}
+            onCopyPlain={() => void runCommand('edit.copyPlain')}
             onExport={() => void runCommand('file.export')}
             onHistory={() => void runCommand('view.history')}
             onSettings={() => setSettingsOpen(true)}
@@ -1066,8 +1079,6 @@ const saveAll = useCallback(async () => {
         <Rail
           panel={panel}
           onSelect={setPanel}
-          theme={theme}
-          onToggleTheme={() => patchSettings({ theme: theme === 'light' ? 'dark' : 'light' })}
           onSettings={() => setSettingsOpen(true)}
         />
 
