@@ -70,13 +70,9 @@ pnpm stage   ->  C:\Users\davem\Valence\Valence.exe   you test this
 you approve  ->  git tag v0.1.x && git push --tags    CI builds and publishes
 ```
 
-`pnpm stage` wipes `out/` and `release/` first, because a stale artifact there once made a
-probe report against a build that no longer existed. It finishes by running the packaged-app
-verifier, which launches the app and fails unless the window opens, the preload bridge loads,
-a file round-trips through it, and nothing is logged on the way up.
+`pnpm stage` wipes `out/` and `release/` first, because a stale artifact there once made a probe report against a build that no longer existed. It finishes by running the packaged-app verifier, which launches the app and fails unless the window opens, the preload bridge loads, a file round-trips through it, and nothing is logged on the way up.
 
-Nothing reaches GitHub until a build has been tested and approved. A tag means "this exact
-tree was tested and is good", and CI will not publish a tree that does not start.
+Nothing reaches GitHub until a build has been tested and approved. A tag means "this exact tree was tested and is good", and CI will not publish a tree that does not start.
 
 `pnpm dev:web` exists because the editor core must never need a shell to work -- it runs against a `localStorage` platform implementation, which also makes the UI easy to iterate on.
 
@@ -131,7 +127,7 @@ This is the direct lesson from MarkText. They were the only project of the two w
 
 `test/markers.test.ts` -- moves a real selection through a real document and reads the decoration set, rather than asserting a CSS class exists. Covers bold, italic, links, images, nested runs, block exit, and the guarantee that markers never enter the serialised document.
 
-`test/table.test.ts`** and **`test/tableToolbar.test.ts` -- assert each table cell individually. That is not paranoia: `tableContext` originally used `$sel.index(depth)`, which returns the index of the node *at* that depth within its parent. One level too high for the row, and dependent on caret depth -- so it reported column 0 for every cell in the table while the shape assertions still passed.
+`test/table.test.ts`\*\* and \*\*`test/tableToolbar.test.ts` -- assert each table cell individually. That is not paranoia: `tableContext` originally used `$sel.index(depth)`, which returns the index of the node *at* that depth within its parent. One level too high for the row, and dependent on caret depth -- so it reported column 0 for every cell in the table while the shape assertions still passed.
 
 `test/columnDrag.test.ts` -- `reorderColumn` is pure, and it is the entire risk surface of drag-to-reorder: getting it wrong silently shreds a table, and undo is not always a rescue. Tested for direction, no-ops, out-of-range refusal, non-mutation of the source node, markdown round-trip, and the case it *must* refuse -- a table whose rows have differing cell counts, where "column 2" means something different per row.
 
