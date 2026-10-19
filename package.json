@@ -1,6 +1,6 @@
 {
   "name": "valence",
-  "version": "0.1.0",
+  "version": "0.1.9",
   "private": true,
   "description": "Valence - a local-first Markdown editor. Typora seamless reading, MarkText editor depth, modernised.",
   "author": "Dave Patrick <dave-patrick@users.noreply.github.com>",

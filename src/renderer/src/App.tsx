@@ -1355,7 +1355,7 @@ const saveAll = useCallback(async () => {
             notify(`Failed to set file associations: ${err}`, 'error')
           }
         }}
-        appVersion="0.1.0"
+        appVersion="0.1.9"
       />
     </div>
   )

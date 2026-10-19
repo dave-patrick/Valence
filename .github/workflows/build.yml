@@ -46,13 +46,16 @@ jobs:
         run: pnpm test
 
       - name: Build
-        run: pnpm ${{ matrix.script }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: pnpm ${{ matrix.script }} -- --publish always
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: valence-${{ matrix.os }}
           path: ${{ matrix.artifact }}
+          if-no-files-found: error
           # A build that produces no artifact is a failed release, not a warning. v0.1.4
           # shipped green with no Windows build at all because the glob pointed at the old
           # output name and this step shrugged. Anyone downloading was handed nothing.
@@ -93,14 +96,9 @@ jobs:
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
     steps:
-      - uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-          merge-multiple: true
-      - name: Publish to GitHub Releases
+      - name: Update release notes
         uses: softprops/action-gh-release@v2
         with:
-          files: artifacts/**/*
           body_path: RELEASE-NOTES.md
           draft: false
           prerelease: false
