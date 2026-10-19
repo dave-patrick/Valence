@@ -37,3 +37,6 @@ electron.log
 # notes folder as a workspace fills their repository with snapshot history.
 .valence/
 
+
+# graft's local graph cache — regenerable, not committed (run `graft build`).
+/graft/
