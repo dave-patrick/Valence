@@ -1030,3 +1030,81 @@
   cursor: default;
   user-select: text;
 }
+
+/* Theme gallery in settings. */
+.valence-theme-gallery {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.valence-theme-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 96px;
+  padding: 10px 6px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg-panel);
+  cursor: pointer;
+  text-align: center;
+  transition: border-color 0.12s var(--ease-out), box-shadow 0.12s var(--ease-out);
+}
+.valence-theme-card:hover {
+  border-color: var(--accent);
+}
+.valence-theme-card--selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent);
+}
+.valence-theme-swatch {
+  width: 64px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+}
+.valence-theme-swatch--dark {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+}
+.valence-theme-swatch--light {
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+.valence-theme-name {
+  font-size: 0.75em;
+  color: var(--text-soft);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Accent colour picker. */
+.valence-accent-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+.valence-accent-swatch {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: transform 0.12s var(--ease-out), border-color 0.12s var(--ease-out);
+}
+.valence-accent-swatch:hover {
+  transform: scale(1.1);
+}
+.valence-accent-swatch--selected {
+  border-color: var(--ink);
+  box-shadow: 0 0 0 1px var(--ink);
+}
+.valence-accent-custom input[type='color'] {
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 50%;
+  background: none;
+  cursor: pointer;
+  padding: 0;
+}

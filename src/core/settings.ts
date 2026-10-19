@@ -9,11 +9,18 @@
 export type TabBarPosition = 'top' | 'bottom' | 'hidden'
 export type ThemePreference = 'system' | 'light' | 'dark'
 
+import { normaliseHex } from './theme'
+
 export interface Settings {
   /** Where the tab bar sits. `hidden` is a real option — some people want one document
    *  at a time and no evidence of the machinery. */
   tabBar: TabBarPosition
+  /** Base mode: system / light / dark. 'system' follows the OS preference. */
   theme: ThemePreference
+  /** Theme id (from src/core/theme.ts THEMES). 'house' is the house colour scheme. */
+  themeId: string
+  /** User's accent colour, hex with #. Overrides the theme's accent. */
+  accentColor: string
 
   /** Editor behaviour */
   typewriter: boolean
@@ -48,6 +55,8 @@ export interface Settings {
 export const DEFAULT_SETTINGS: Settings = {
   tabBar: 'top',
   theme: 'system',
+  themeId: 'house',
+  accentColor: '#78b6ff',
   typewriter: false,
   focusMode: false,
   showLineNumbers: false,
@@ -80,6 +89,8 @@ export function normaliseSettings(input: unknown): Settings {
   return {
     tabBar: oneOf(raw['tabBar'], ['top', 'bottom', 'hidden'], DEFAULT_SETTINGS.tabBar),
     theme: oneOf(raw['theme'], ['system', 'light', 'dark'], DEFAULT_SETTINGS.theme),
+    themeId: str(raw['themeId']) || DEFAULT_SETTINGS.themeId,
+    accentColor: normaliseHex(str(raw['accentColor'])),
 
     typewriter: bool(raw['typewriter'], DEFAULT_SETTINGS.typewriter),
     focusMode: bool(raw['focusMode'], DEFAULT_SETTINGS.focusMode),

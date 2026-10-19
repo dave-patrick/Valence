@@ -27,8 +27,10 @@ import { COMMANDS } from '@features/commands/commands'
 import { SlashMenu } from '@features/slash/SlashMenu'
 import { searchSlashItems, SLASH_ITEMS } from '@features/slash/slashCommands'
 import { detectSlash } from '@features/slash/useSlash'
-import { loadSettings, rememberFolder, resolveTheme, saveSession, saveSettings } from '@features/settings/store'
+import { loadSettings, rememberFolder, saveSession, saveSettings } from '@features/settings/store'
+import { DEFAULT_SETTINGS } from '@core/settings'
 import type { Settings } from '@core/settings'
+import { resolveBase, resolveCSSVars } from '@core/theme'
 import {
   active as activeDoc,
   byId,
@@ -308,7 +310,14 @@ const appMenuAnchor = useRef<HTMLButtonElement>(null)
   useEffect(() => () => clearTimeout(noticeTimer.current), [])
   const stats = useMemo(() => computeStats(source), [source])
 
-  const theme = settings ? resolveTheme(settings.theme) : 'light'
+  const themeState = useMemo(() => ({
+    themeId: settings?.themeId ?? DEFAULT_SETTINGS.themeId,
+    base: settings ? resolveBase(settings.theme) : 'light',
+    accent: settings?.accentColor ?? DEFAULT_SETTINGS.accentColor,
+  }), [settings])
+
+  const cssVars = useMemo(() => resolveCSSVars(themeState.themeId, themeState.base, themeState.accent), [themeState])
+
   const dirty = doc ? isDirty(doc) : false
 
   /* ── Boot: load settings, then restore the last session ───── */
@@ -406,8 +415,12 @@ const appMenuAnchor = useRef<HTMLButtonElement>(null)
   }, [platform])
 
   useEffect(() => {
-    document.documentElement.dataset.theme = theme
-  }, [theme])
+    const root = document.documentElement
+    root.dataset.theme = themeState.base
+    Object.entries(cssVars).forEach(([key, value]) => {
+      root.style.setProperty(key, value)
+    })
+  }, [themeState, cssVars])
 
   const patchSettings = useCallback((patch: Partial<Settings>) => {
     setSettings((prev) => {
@@ -597,7 +610,7 @@ const appMenuAnchor = useRef<HTMLButtonElement>(null)
     if (view !== 'split' && !exportOpen) return
     let cancelled = false
 
-    void renderToHtml(source, { mode: theme }).then(
+    void renderToHtml(source, { mode: themeState.base }).then(
       (r) => {
         if (cancelled) return
         // Paint the prose now; diagrams arrive later. Waiting for Mermaid first left the
@@ -625,7 +638,7 @@ const appMenuAnchor = useRef<HTMLButtonElement>(null)
     return () => {
       cancelled = true
     }
-  }, [view, exportOpen, source, theme])
+  }, [view, exportOpen, source, themeState.base])
 
   /* ── File operations ───────────────────────────────────────── */
 
@@ -880,7 +893,7 @@ const saveAll = useCallback(async () => {
         case 'edit.copyMarkdown':
           return void platform.clipboard.writeText(source)
         case 'edit.copyHtml':
-          return void renderToHtml(source, { mode: theme }).then((r) =>
+          return void renderToHtml(source, { mode: themeState.base }).then((r) =>
             platform.clipboard.writeHtml(r.html),
           )
         case 'edit.copyPlain':
@@ -919,7 +932,7 @@ const saveAll = useCallback(async () => {
           return moveTab(-1)
 
         case 'app.theme':
-          return settings && patchSettings({ theme: theme === 'light' ? 'dark' : 'light' })
+          return settings && patchSettings({ theme: themeState.base === 'light' ? 'dark' : 'light' })
         case 'app.settings':
           return setSettingsOpen(true)
         default:
@@ -940,7 +953,7 @@ const saveAll = useCallback(async () => {
       moveTab,
       settings,
       patchSettings,
-      theme,
+      themeState.base,
     ],
   )
 
@@ -1065,7 +1078,7 @@ const saveAll = useCallback(async () => {
             onHistory={() => void runCommand('view.history')}
             onSettings={() => setSettingsOpen(true)}
             onTheme={() =>
-              patchSettings({ theme: theme === 'light' ? 'dark' : 'light' })
+              patchSettings({ theme: themeState.base === 'light' ? 'dark' : 'light' })
             }
             onCloseDoc={() => {
               const active = activeDoc(session)
@@ -1289,6 +1302,8 @@ const saveAll = useCallback(async () => {
 const DEFAULT_SAFE: Settings = {
   tabBar: 'top',
   theme: 'system',
+  themeId: DEFAULT_SETTINGS.themeId,
+  accentColor: DEFAULT_SETTINGS.accentColor,
   typewriter: false,
   focusMode: false,
   showLineNumbers: false,
