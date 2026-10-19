@@ -85,47 +85,47 @@
         "dmg",
         "zip"
       ],
-      "icon": "resources/icon_dark.png"
+      "icon": "resources/icon.png"
     },
     "win": {
       "target": [
         "zip"
       ],
-      "icon": "resources/icon_dark.png",
+      "icon": "resources/icon.png",
       "fileAssociations": [
         {
           "ext": "md",
           "name": "Markdown",
           "description": "Markdown document",
-          "icon": "resources/icon_dark.png",
+          "icon": "resources/icon.png",
           "role": "Editor"
         },
         {
           "ext": "markdown",
           "name": "Markdown",
           "description": "Markdown document",
-          "icon": "resources/icon_dark.png",
+          "icon": "resources/icon.png",
           "role": "Editor"
         },
         {
           "ext": "mdown",
           "name": "Markdown",
           "description": "Markdown document",
-          "icon": "resources/icon_dark.png",
+          "icon": "resources/icon.png",
           "role": "Editor"
         },
         {
           "ext": "mkd",
           "name": "Markdown",
           "description": "Markdown document",
-          "icon": "resources/icon_dark.png",
+          "icon": "resources/icon.png",
           "role": "Editor"
         },
         {
           "ext": "txt",
           "name": "Text",
           "description": "Plain text file",
-          "icon": "resources/icon_dark.png",
+          "icon": "resources/icon.png",
           "role": "Editor"
         }
       ]
@@ -136,7 +136,7 @@
         "AppImage",
         "deb"
       ],
-      "icon": "resources/icon_dark.png"
+      "icon": "resources/icon.png"
     },
     "nsis": {
       "oneClick": false,

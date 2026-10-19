@@ -637,8 +637,10 @@ const appMenuAnchor = useRef<HTMLButtonElement>(null)
         setReadHtml(r.html)
         setReadError(null)
 
+
         if (r.diagrams > 0) {
           void r.hydrated.then((h) => {
+            console.error('DEBUG hydrated html:', h.slice(0, 200))
             if (!cancelled) setReadHtml(h)
           })
         }
