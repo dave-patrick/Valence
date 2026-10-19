@@ -165,6 +165,8 @@ export function App() {
   /* ── Session ───────────────────────────────────────────────── */
 
   const [session, setSession] = useState<Session>({ documents: [], activeId: '' })
+  const sessionRef = useRef(session)
+  sessionRef.current = session
   const [view, setView] = useState<ViewMode>('hybrid')
   const [panel, setPanel] = useState<PanelId>('outline')
   const [sidebarWidth, setSidebarWidth] = useState(268)
@@ -315,32 +317,83 @@ const appMenuAnchor = useRef<HTMLButtonElement>(null)
         return { documents: [doc], activeId: doc.id }
       }
 
+      let current: Session
       if (!loaded.restoreSession || !loaded.lastSession.length) {
-        setSession(fallback())
-        return
+        current = fallback()
+      } else {
+        // Restore only what still opens. A file that has been moved or deleted must not
+        // stop the rest of the session from coming back.
+        const docs = await Promise.all(
+          loaded.lastSession.map(async (path) => {
+            try {
+              return fromPath(path, await platform.fs.read(path))
+            } catch {
+              return null
+            }
+          }),
+        )
+
+        const found = docs.filter((d): d is NonNullable<typeof d> => d !== null)
+        const next = openAll({ documents: [], activeId: '' }, found)
+        current = next.documents.length ? next : fallback()
       }
 
-      // Restore only what still opens. A file that has been moved or deleted must not
-      // stop the rest of the session from coming back.
-      const docs = await Promise.all(
-        loaded.lastSession.map(async (path) => {
-          try {
-            return fromPath(path, await platform.fs.read(path))
-          } catch {
-            return null
-          }
-        }),
-      )
-
       if (cancelled) return
-      const found = docs.filter((d): d is NonNullable<typeof d> => d !== null)
-      const next = openAll({ documents: [], activeId: '' }, found)
-      setSession(next.documents.length ? next : fallback())
+      setSession(current)
+
+      // Files passed on the command line ("Open with" / dragged onto Valence.exe) open
+      // after the restored session, so they're visible right away.
+      const pending = await platform.window.pendingFiles()
+      for (const path of pending) {
+        try {
+          const text = await platform.fs.read(path)
+          const existing = current.documents.find((d) => d.path === path)
+          if (existing) {
+            current = setActiveDoc(current, existing.id)
+          } else {
+            current = openDoc(current, fromPath(path, text))
+            current = setActiveDoc(
+              current,
+              current.documents[current.documents.length - 1].id,
+            )
+          }
+          setSession(current)
+        } catch {
+          /* unreadable file: skip */
+        }
+      }
     })()
 
     return () => {
       cancelled = true
     }
+  }, [platform])
+
+  // "Open with" while Valence is already running: main forwards the file paths here.
+  useEffect(() => {
+    return platform.window.onOpenFiles(async (paths) => {
+      for (const path of paths) {
+        try {
+          let current = sessionRef.current
+          const text = await platform.fs.read(path)
+          current = sessionRef.current
+          const existing = current.documents.find((d) => d.path === path)
+          if (existing) {
+            current = setActiveDoc(current, existing.id)
+          } else {
+            current = openDoc(current, fromPath(path, text))
+            current = setActiveDoc(
+              current,
+              current.documents[current.documents.length - 1].id,
+            )
+          }
+          setSession(current)
+          sessionRef.current = current
+        } catch {
+          /* unreadable file: skip */
+        }
+      }
+    })
   }, [platform])
 
   useEffect(() => {

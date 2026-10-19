@@ -98,6 +98,12 @@ export function createWebPlatform(): Platform {
         guardFns.add(guard)
         return () => guardFns.delete(guard)
       },
+      pendingFiles() {
+        return Promise.resolve([])
+      },
+      onOpenFiles() {
+        return () => {}
+      },
     },
 
     dialog: {

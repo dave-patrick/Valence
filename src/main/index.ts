@@ -1,10 +1,34 @@
 import { app, BrowserWindow, dialog, ipcMain, Menu, shell } from 'electron'
 import { readFile, writeFile, stat, readdir, mkdir } from 'node:fs/promises'
-import { watch, type FSWatcher } from 'node:fs'
+import { watch, type FSWatcher, statSync as statSyncFile } from 'node:fs'
 import { basename, dirname } from 'node:path'
 import { preloadPath, resolveDataPath as resolvePath } from './paths'
 
 const isDev = !app.isPackaged
+
+/** Files passed on the command line ("Open with", drag onto the exe, etc.). */
+let pendingOpenFiles: string[] = []
+
+function collectArgvFiles(argv: string[]): string[] {
+  return argv
+    .filter((arg, i) => i > 0 && !arg.startsWith('-'))
+    .filter((arg) => {
+      try {
+        return statSyncFile(arg).isFile()
+      } catch {
+        return false
+      }
+    })
+}
+
+// Single instance: "Open with" must reach the running app, not spawn a new one.
+let gotTheLock = true
+if (app.isPackaged) {
+  gotTheLock = app.requestSingleInstanceLock()
+  if (!gotTheLock) {
+    app.quit()
+  }
+}
 
 let main: BrowserWindow | null = null
 const watchers = new Map<string, FSWatcher>()
@@ -54,13 +78,31 @@ function createWindow(): void {
   else void main.loadFile(`${__dirname}/../renderer/index.html`)
 }
 
-app.whenReady().then(() => {
-  createWindow()
+if (gotTheLock) {
+  if (app.isPackaged) {
+    app.on('second-instance', (_event, argv, _cwd) => {
+      const files = collectArgvFiles(argv)
+      if (files.length) {
+        pendingOpenFiles = [...pendingOpenFiles, ...files]
+        if (main) {
+          main.focus()
+          main.webContents.send('doc:open-files', files)
+        }
+      } else if (main) {
+        main.focus()
+      }
+    })
+  }
 
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow()
+  app.whenReady().then(() => {
+    createWindow()
+    pendingOpenFiles = collectArgvFiles(process.argv)
+
+    app.on('activate', () => {
+      if (BrowserWindow.getAllWindows().length === 0) createWindow()
+    })
   })
-})
+}
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()
@@ -187,6 +229,12 @@ ipcMain.on('win:close-answer', (_e, id: number, allow: boolean) => {
     pendingClose.delete(id)
     resolve(allow)
   }
+})
+
+ipcMain.handle('doc:pending-files', () => {
+  const files = pendingOpenFiles
+  pendingOpenFiles = []
+  return files
 })
 
 ipcMain.handle('dialog:openFile', async () => {

@@ -37,6 +37,12 @@ const api = {
       return () => ipcRenderer.off('win:close-request', handler)
     },
     answerClose: (id: number, allow: boolean) => ipcRenderer.send('win:close-answer', id, allow),
+    pendingFiles: () => ipcRenderer.invoke('doc:pending-files'),
+    onOpenFiles: (cb: (paths: string[]) => void) => {
+      const handler = (_e: unknown, paths: string[]) => cb(paths)
+      ipcRenderer.on('doc:open-files', handler)
+      return () => ipcRenderer.off('doc:open-files', handler)
+    },
   },
   dialog: {
     openFile: () => ipcRenderer.invoke('dialog:openFile'),

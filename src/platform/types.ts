@@ -68,6 +68,10 @@ export interface Platform {
     setDirty(dirty: boolean): void
     /** Register a guard invoked on close when dirty. Returns an unsubscribe fn. */
     onCloseGuard(guard: () => Promise<boolean>): () => void
+    /** Paths passed on the command line ("Open with"). Empty unless the app was launched with files. */
+    pendingFiles(): Promise<string[]>
+    /** Fired when the running app is asked to open more files ("Open with" while already open). */
+    onOpenFiles(cb: (paths: string[]) => void): () => void
   }
 
   dialog: {

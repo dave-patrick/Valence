@@ -28,6 +28,8 @@ export interface ValenceBridge {
     registerCloseGuard(): void
     onCloseRequested(cb: (id: number) => void): () => void
     answerClose(id: number, allow: boolean): void
+    pendingFiles(): Promise<string[]>
+    onOpenFiles(cb: (paths: string[]) => void): () => void
   }
   dialog: {
     openFile(): Promise<unknown>
@@ -111,6 +113,8 @@ export function createNodePlatform(): Platform {
           void guard().then((allow) => b.win.answerClose(id, allow))
         })
       },
+      pendingFiles: () => b.win.pendingFiles(),
+      onOpenFiles: (cb) => b.win.onOpenFiles(cb),
     },
 
     dialog: {

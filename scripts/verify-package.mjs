@@ -186,7 +186,7 @@ const checks = {
     // discarded unsaved work. Naming the API turns a drift into a visible failure.
     const required = {
       fs: ['read', 'write', 'writeBinary', 'stat', 'exists', 'listDir', 'watch', 'unwatch', 'reveal'],
-      win: ['setTitle', 'setDirty', 'registerCloseGuard', 'onCloseRequested', 'answerClose'],
+      win: ['setTitle', 'setDirty', 'registerCloseGuard', 'onCloseRequested', 'answerClose', 'pendingFiles', 'onOpenFiles'],
       dialog: ['openFile', 'openFolder', 'save', 'confirm', 'unsaved'],
       menu: ['build', 'onCommand'],
       clip: ['writeText', 'writeHtml', 'writeImage', 'read'],
