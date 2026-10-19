@@ -96,4 +96,14 @@ describe('renderToHtml with a diagram', () => {
     // is that the immediate html is the usable one, which the two assertions above cover.
     expect(typeof r.hydrated.then).toBe('function')
   })
+
+  it('hydrates diagrams without hanging', async () => {
+    const r = await renderToHtml(WITH_DIAGRAM)
+    const h = await r.hydrated
+    // In jsdom, Mermaid cannot render SVG (getBBox is missing), so it falls back
+    // to showing the source. In a real browser (Chromium), it produces SVG. Either way,
+    // the hydrated promise must settle and the placeholder must be gone.
+    expect(h).not.toContain('valence-diagram--pending')
+    expect(h).toContain('valence-diagram')
+  }, 30000)
 })

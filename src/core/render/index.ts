@@ -184,7 +184,7 @@ export async function renderToHtml(source: string, options: RenderOptions = {}):
     title,
     html: withPlaceholders,
     diagrams: diagrams.length,
-    hydrated: options.standalone ? hydrated : Promise.resolve(withPlaceholders),
+    hydrated: hydrated,
   }
 }
 
