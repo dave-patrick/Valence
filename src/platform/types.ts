@@ -87,6 +87,21 @@ export interface Platform {
     onCommand(handler: (id: string) => void): () => void
   }
 
+  update: {
+    check(): Promise<{ available: boolean; version: string | null; reason?: string }>
+    download(): Promise<void>
+    install(): Promise<void>
+    onAvailable(cb: (version: string) => void): () => void
+    onDownloaded(cb: (version: string) => void): () => void
+    onError(cb: (error: string) => void): () => void
+  }
+
+  assoc: {
+    isDefault(ext: string): Promise<boolean>
+    setDefault(): Promise<{ ok: boolean; reason?: string }>
+    extensions(): Promise<string[]>
+  }
+
   clipboard: {
     writeText(text: string): Promise<void>
     writeHtml(html: string): Promise<void>

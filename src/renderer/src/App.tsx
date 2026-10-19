@@ -387,6 +387,25 @@ const appMenuAnchor = useRef<HTMLButtonElement>(null)
     }
   }, [platform])
 
+  // Update notifications from main.
+  useEffect(() => {
+    const offAvail = platform.update.onAvailable((version) => {
+      notify(`Update ${version} is available. Downloading…`)
+      void platform.update.download()
+    })
+    const offDownloaded = platform.update.onDownloaded((version) => {
+      notify(`Update ${version} downloaded. It will install on next launch, or click "Install now".`)
+    })
+    const offError = platform.update.onError((err) => {
+      notify(`Update check failed: ${err}`, 'error')
+    })
+    return () => {
+      offAvail()
+      offDownloaded()
+      offError()
+    }
+  }, [platform, notify])
+
   // "Open with" while Valence is already running: main forwards the file paths here.
   useEffect(() => {
     return platform.window.onOpenFiles(async (paths) => {
@@ -935,6 +954,20 @@ const saveAll = useCallback(async () => {
           return settings && patchSettings({ theme: themeState.base === 'light' ? 'dark' : 'light' })
         case 'app.settings':
           return setSettingsOpen(true)
+        case 'app.checkUpdates': {
+          void (async () => {
+            const r = await platform.update.check()
+            if (r.available) {
+              notify(`Update ${r.version} available — downloading`)
+              await platform.update.download()
+            } else if (r.reason === 'dev') {
+              notify('Updates are disabled in development builds.')
+            } else {
+              notify('You are on the latest version.')
+            }
+          })()
+          return
+        }
         default:
           return
       }
@@ -1293,6 +1326,34 @@ const saveAll = useCallback(async () => {
           const folder = result.folder ?? result.paths[0]
           if (folder) patchSettings({ defaultSaveDir: folder })
         }}
+        onCheckUpdates={async () => {
+          try {
+            const r = await platform.update.check()
+            if (r.available) {
+              notify(`Update ${r.version} available — downloading`)
+              await platform.update.download()
+            } else if (r.reason === 'dev') {
+              notify('Updates are disabled in development builds.')
+            } else {
+              notify('You are on the latest version.')
+            }
+          } catch (err) {
+            notify(`Update check failed: ${err}`, 'error')
+          }
+        }}
+        onSetDefault={async () => {
+          try {
+            const r = await platform.assoc.setDefault()
+            if (r.ok) {
+              notify('File associations set. You may need to restart Explorer.')
+            } else {
+              notify(`Could not set file associations: ${r.reason ?? 'unknown error'}`, 'error')
+            }
+          } catch (err) {
+            notify(`Failed to set file associations: ${err}`, 'error')
+          }
+        }}
+        appVersion="0.1.0"
       />
     </div>
   )

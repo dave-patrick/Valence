@@ -1,8 +1,9 @@
 import { app, BrowserWindow, dialog, ipcMain, Menu, shell } from 'electron'
 import { readFile, writeFile, stat, readdir, mkdir } from 'node:fs/promises'
 import { watch, type FSWatcher, statSync as statSyncFile } from 'node:fs'
-import { basename, dirname } from 'node:path'
+import { basename, dirname, join } from 'node:path'
 import { preloadPath, resolveDataPath as resolvePath } from './paths'
+import { autoUpdater } from 'electron-updater'
 
 const isDev = !app.isPackaged
 
@@ -102,6 +103,30 @@ if (gotTheLock) {
       if (BrowserWindow.getAllWindows().length === 0) createWindow()
     })
   })
+}
+
+/* ── Auto-updater (packaged only) ────────────────────────────────
+   electron-updater checks GitHub releases for a newer version and
+   downloads it in the background. The user is prompted to install
+   when the download completes. In dev mode this is a no-op. */
+if (app.isPackaged) {
+  autoUpdater.autoDownload = false
+  autoUpdater.autoInstallOnAppQuit = true
+
+  autoUpdater.on('update-available', (info) => {
+    if (main) main.webContents.send('update:available', info.version)
+  })
+  autoUpdater.on('update-downloaded', (info) => {
+    if (main) main.webContents.send('update:downloaded', info.version)
+  })
+  autoUpdater.on('error', (err) => {
+    if (main) main.webContents.send('update:error', String(err))
+  })
+
+  // Check on startup (after a short delay so the window paints first)
+  setTimeout(() => {
+    void autoUpdater.checkForUpdates().catch(() => {})
+  }, 5000)
 }
 
 app.on('window-all-closed', () => {
@@ -237,6 +262,32 @@ ipcMain.handle('doc:pending-files', () => {
   return files
 })
 
+ipcMain.handle('update:check', async () => {
+  if (!app.isPackaged) return { available: false, version: null, reason: 'dev' }
+  try {
+    const result = await autoUpdater.checkForUpdates()
+    return {
+      available: result?.updateInfo?.version !== app.getVersion(),
+      version: result?.updateInfo?.version ?? null,
+    }
+  } catch (err) {
+    return { available: false, version: null, reason: String(err) }
+  }
+})
+
+ipcMain.handle('update:download', async () => {
+  if (!app.isPackaged) return
+  try {
+    await autoUpdater.downloadUpdate()
+  } catch (err) {
+    if (main) main.webContents.send('update:error', String(err))
+  }
+})
+
+ipcMain.handle('update:install', () => {
+  autoUpdater.quitAndInstall(false, true)
+})
+
 ipcMain.handle('dialog:openFile', async () => {
   const r = await dialog.showOpenDialog({
     properties: ['openFile', 'multiSelections'],
@@ -300,6 +351,59 @@ ipcMain.handle('clip:writeImage', (_e, data: ArrayBuffer, ext: string) =>
   main?.webContents.send('clip:image', { data, ext }),
 )
 ipcMain.handle('clip:read', () => ({ text: '', html: '' }))
+
+// File associations: register Valence as the handler for text/markdown files.
+// Done at runtime via the registry because the zip distribution has no installer.
+// Uses HKEY_CURRENT_USER so no admin rights are required.
+const ASSOC_EXTENSIONS = ['.md', '.markdown', '.mdown', '.mkd', '.txt']
+
+ipcMain.handle('assoc:isDefault', async (_e, ext: string) => {
+  if (process.platform !== 'win32') return false
+  const { execFile } = await import('node:child_process')
+  return new Promise((resolve) => {
+    execFile('reg', ['query', `HKCU\\Software\\Classes\\${ext}`, '/v', ''], (err, stdout) => {
+      if (err) { resolve(false); return }
+      resolve(stdout.includes('Valence.Document'))
+    })
+  })
+})
+
+ipcMain.handle('assoc:setDefault', async () => {
+  if (process.platform !== 'win32') return { ok: false, reason: 'unsupported platform' }
+  const { execFile } = await import('node:child_process')
+  const exePath = process.execPath
+  const progId = 'Valence.Document'
+
+  // Register the ProgId with its open command.
+  const commands = [
+    ['add', `HKCU\\Software\\Classes\\${progId}`, '/ve', '/d', 'Valence Document', '/f'],
+    ['add', `HKCU\\Software\\Classes\\${progId}\\DefaultIcon`, '/ve', '/d', `"${exePath}",0`, '/f'],
+    ['add', `HKCU\\Software\\Classes\\${progId}\\shell\\open\\command`, '/ve', '/d', `"${exePath}" "%1"`, '/f'],
+  ]
+
+  // Register each extension -> ProgId.
+  for (const ext of ASSOC_EXTENSIONS) {
+    commands.push(['add', `HKCU\\Software\\Classes\\${ext}`, '/ve', '/d', progId, '/f'])
+  }
+
+  for (const cmd of commands) {
+    await new Promise<void>((resolve, reject) => {
+      execFile('reg', cmd, (err) => (err ? reject(err) : resolve()))
+    }).catch(() => {})
+  }
+
+  // Refresh the shell so Explorer picks up the new associations.
+  try {
+    const { execFileSync } = await import('node:child_process')
+    execFileSync('ie4uinit.exe', ['-show'], { stdio: 'ignore' })
+  } catch {
+    /* best effort */
+  }
+
+  return { ok: true }
+})
+
+ipcMain.handle('assoc:extensions', () => ASSOC_EXTENSIONS)
 
 ipcMain.handle('export:formats', () => [
   { id: 'html', label: 'Web Page', extension: 'html' },

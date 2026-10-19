@@ -208,6 +208,7 @@ export const COMMANDS: readonly CommandDef[] = [
   // App
   { id: 'app.theme', title: 'Toggle light and dark theme', group: 'App', keys: 'Ctrl /' },
   { id: 'app.settings', title: 'Open settings', group: 'App', keys: 'Ctrl ,' },
+  { id: 'app.checkUpdates', title: 'Check for updates', group: 'App', keywords: 'update version upgrade' },
 ]
 
 /** Groups in the order the palette should list them when nothing is typed. */

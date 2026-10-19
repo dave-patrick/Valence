@@ -44,6 +44,31 @@ const api = {
       return () => ipcRenderer.off('doc:open-files', handler)
     },
   },
+  update: {
+    check: () => ipcRenderer.invoke('update:check'),
+    download: () => ipcRenderer.invoke('update:download'),
+    install: () => ipcRenderer.invoke('update:install'),
+    onAvailable: (cb: (version: string) => void) => {
+      const handler = (_e: unknown, version: string) => cb(version)
+      ipcRenderer.on('update:available', handler)
+      return () => ipcRenderer.off('update:available', handler)
+    },
+    onDownloaded: (cb: (version: string) => void) => {
+      const handler = (_e: unknown, version: string) => cb(version)
+      ipcRenderer.on('update:downloaded', handler)
+      return () => ipcRenderer.off('update:downloaded', handler)
+    },
+    onError: (cb: (error: string) => void) => {
+      const handler = (_e: unknown, error: string) => cb(error)
+      ipcRenderer.on('update:error', handler)
+      return () => ipcRenderer.off('update:error', handler)
+    },
+  },
+  assoc: {
+    isDefault: (ext: string) => ipcRenderer.invoke('assoc:isDefault', ext),
+    setDefault: () => ipcRenderer.invoke('assoc:setDefault'),
+    extensions: () => ipcRenderer.invoke('assoc:extensions'),
+  },
   dialog: {
     openFile: () => ipcRenderer.invoke('dialog:openFile'),
     openFolder: () => ipcRenderer.invoke('dialog:openFolder'),

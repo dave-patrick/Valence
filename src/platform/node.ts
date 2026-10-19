@@ -42,6 +42,19 @@ export interface ValenceBridge {
     build(items: unknown): Promise<void>
     onCommand(cb: (id: string) => void): () => void
   }
+  update: {
+    check(): Promise<{ available: boolean; version: string | null; reason?: string }>
+    download(): Promise<void>
+    install(): Promise<void>
+    onAvailable(cb: (version: string) => void): () => void
+    onDownloaded(cb: (version: string) => void): () => void
+    onError(cb: (error: string) => void): () => void
+  }
+  assoc: {
+    isDefault(ext: string): Promise<boolean>
+    setDefault(): Promise<{ ok: boolean; reason?: string }>
+    extensions(): Promise<string[]>
+  }
   clip: {
     writeText(t: string): Promise<void>
     writeHtml(h: string): Promise<void>
@@ -128,6 +141,19 @@ export function createNodePlatform(): Platform {
     menu: {
       build: (items) => void b.menu.build(items),
       onCommand: (handler) => b.menu.onCommand(handler),
+    },
+    update: {
+      check: () => b.update.check(),
+      download: () => b.update.download(),
+      install: () => b.update.install(),
+      onAvailable: (cb) => b.update.onAvailable(cb),
+      onDownloaded: (cb) => b.update.onDownloaded(cb),
+      onError: (cb) => b.update.onError(cb),
+    },
+    assoc: {
+      isDefault: (ext) => b.assoc.isDefault(ext),
+      setDefault: () => b.assoc.setDefault(),
+      extensions: () => b.assoc.extensions(),
     },
 
     clipboard: {

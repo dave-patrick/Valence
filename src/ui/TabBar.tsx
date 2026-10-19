@@ -90,6 +90,9 @@ interface SettingsPanelProps {
   settings: React.ComponentProps<typeof SettingsFields>['settings']
   onChange: (patch: Partial<React.ComponentProps<typeof SettingsFields>['settings']>) => void
   onOpenFolder: () => void
+  onCheckUpdates: () => void
+  onSetDefault: () => void
+  appVersion: string
 }
 
 export function SettingsPanel({
@@ -98,6 +101,9 @@ export function SettingsPanel({
   settings,
   onChange,
   onOpenFolder,
+  onCheckUpdates,
+  onSetDefault,
+  appVersion,
 }: SettingsPanelProps) {
   const ref = useRef<HTMLDivElement>(null)
 
@@ -133,7 +139,7 @@ export function SettingsPanel({
           </button>
         </header>
 
-        <SettingsFields settings={settings} onChange={onChange} onOpenFolder={onOpenFolder} />
+        <SettingsFields settings={settings} onChange={onChange} onOpenFolder={onOpenFolder} onCheckUpdates={onCheckUpdates} onSetDefault={onSetDefault} appVersion={appVersion} />
       </div>
     </>
   )
@@ -143,10 +149,16 @@ function SettingsFields({
   settings,
   onChange,
   onOpenFolder,
+  onCheckUpdates,
+  onSetDefault,
+  appVersion,
 }: {
   settings: import('@core/settings').Settings
   onChange: (patch: Partial<import('@core/settings').Settings>) => void
   onOpenFolder: () => void
+  onCheckUpdates: () => void
+  onSetDefault: () => void
+  appVersion: string
 }) {
   return (
     <div className="valence-settings__body">
@@ -180,6 +192,60 @@ function SettingsFields({
           accentColor={settings.accentColor}
           onChange={(patch) => onChange(patch)}
         />
+      </section>
+
+      <section>
+        <h3>Updates</h3>
+        <Field label="Current version" hint="Valence checks GitHub for new releases on launch">
+          <span className="valence-version">{settings ? '1.0.0' : '—'}</span>
+        </Field>
+        <Field label="Check for updates" hint="Manual check against GitHub releases">
+          <button
+            className="valence-btn"
+            onClick={() => {
+              void (async () => {
+                const r = await (window as unknown as { valence: { update: { check: () => Promise<{ available: boolean; version: string | null; reason?: string }> } } }).valence.update.check()
+                if (r.available) {
+                  alert(`Update ${r.version} is available. Downloading…`)
+                  await (window as unknown as { valence: { update: { download: () => Promise<void> } } }).valence.update.download()
+                } else if (r.reason === 'dev') {
+                  alert('Updates are disabled in development builds.')
+                } else {
+                  alert('You are on the latest version.')
+                }
+              })()
+            }}
+          >
+            Check now
+          </button>
+        </Field>
+      </section>
+
+      <section>
+        <h3>File associations</h3>
+        <Field label="Default app" hint="Register Valence as the default editor for text and Markdown files">
+          <button
+            className="valence-btn"
+            onClick={() => {
+              void (async () => {
+                const r = await (window as unknown as { valence: { assoc: { setDefault: () => Promise<{ ok: boolean; reason?: string }> } } }).valence.assoc.setDefault()
+                if (r.ok) {
+                  alert('File associations set. You may need to restart Explorer or log out and back in for changes to appear.')
+                } else {
+                  alert(`Could not set file associations: ${r.reason ?? 'unknown error'}`)
+                }
+              })()
+            }}
+          >
+            Set as default
+          </button>
+        </Field>
+        <div className="valence-field">
+          <span className="valence-field__label">Extensions</span>
+          <ul className="valence-recents">
+            <li>.md, .markdown, .mdown, .mkd, .txt</li>
+          </ul>
+        </div>
       </section>
 
       <section>
@@ -282,6 +348,31 @@ function SettingsFields({
            spellCheck={false}
          />
        </Field>
+     </section>
+
+     <section>
+       <h3>Updates</h3>
+       <Field label="Current version" hint="Valence checks GitHub releases for new versions on launch">
+         <span className="valence-version">{appVersion}</span>
+       </Field>
+       <Field label="Check for updates" hint="Manual check against GitHub releases">
+         <button className="valence-btn" onClick={onCheckUpdates}>
+           Check now
+         </button>
+       </Field>
+     </section>
+
+     <section>
+       <h3>File associations</h3>
+       <Field label="Set as default" hint="Register Valence as the default editor for .md, .markdown, .mdown, .mkd, .txt">
+         <button className="valence-btn" onClick={onSetDefault}>
+           Set as default
+         </button>
+       </Field>
+       <div className="valence-field">
+         <span className="valence-field__label">Extensions</span>
+         <p className="valence-hint">.md, .markdown, .mdown, .mkd, .txt</p>
+       </div>
      </section>
       </section>
     </div>

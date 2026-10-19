@@ -139,6 +139,19 @@ export function createWebPlatform(): Platform {
         return () => commandFns.delete(handler)
       },
     },
+    update: {
+      async check() { return { available: false, version: null, reason: 'browser' } },
+      async download() {},
+      async install() {},
+      onAvailable() { return () => {} },
+      onDownloaded() { return () => {} },
+      onError() { return () => {} },
+    },
+    assoc: {
+      async isDefault() { return false },
+      async setDefault() { return { ok: false, reason: 'browser' } },
+      async extensions() { return [] },
+    },
 
     clipboard: {
       async writeText(text) {

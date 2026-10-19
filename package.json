@@ -71,6 +71,14 @@
       "!**/node_modules/**/*"
     ],
     "asar": true,
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "dave-patrick",
+        "repo": "Valence",
+        "releaseType": "release"
+      }
+    ],
     "mac": {
       "category": "public.app-category.productivity",
       "target": [
@@ -83,7 +91,44 @@
       "target": [
         "zip"
       ],
-      "icon": "resources/icon_dark.png"
+      "icon": "resources/icon_dark.png",
+      "fileAssociations": [
+        {
+          "ext": "md",
+          "name": "Markdown",
+          "description": "Markdown document",
+          "icon": "resources/icon_dark.png",
+          "role": "Editor"
+        },
+        {
+          "ext": "markdown",
+          "name": "Markdown",
+          "description": "Markdown document",
+          "icon": "resources/icon_dark.png",
+          "role": "Editor"
+        },
+        {
+          "ext": "mdown",
+          "name": "Markdown",
+          "description": "Markdown document",
+          "icon": "resources/icon_dark.png",
+          "role": "Editor"
+        },
+        {
+          "ext": "mkd",
+          "name": "Markdown",
+          "description": "Markdown document",
+          "icon": "resources/icon_dark.png",
+          "role": "Editor"
+        },
+        {
+          "ext": "txt",
+          "name": "Text",
+          "description": "Plain text file",
+          "icon": "resources/icon_dark.png",
+          "role": "Editor"
+        }
+      ]
     },
     "linux": {
       "category": "Office",
