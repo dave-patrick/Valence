@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { EditorContent, useEditor } from '@tiptap/react'
 import { createExtensions } from '@core/editor/extensions'
+import { LINE_NUMBERS_TOGGLE } from '@core/editor/lineNumbers'
 import { dirname, joinPath } from '@shared/path'
 import { Rail } from '@ui/Rail'
 import { Sidebar } from '@ui/Sidebar'
@@ -9,6 +10,7 @@ import { Inspector } from '@ui/Inspector'
 import { StrataGutter } from '@ui/StrataGutter'
 import { TableToolbar } from '@ui/TableToolbar'
 import { TabBar, SettingsPanel, type UpdateState } from '@ui/TabBar'
+import { SourceGutter } from '@ui/SourceGutter'
 import { WELCOME } from './welcome'
 import { getPlatform, bridgeStatus } from '@platform'
 import { parseMarkdown } from '@core/markdown/parse'
@@ -476,12 +478,13 @@ const appMenuAnchor = useRef<HTMLButtonElement>(null)
   const initialHtml = useMemo(() => blocksToHtml(parseMarkdown(WELCOME).blocks), [])
   const loadedFor = useRef<string>('')
 
-  // Focus and typewriter read settings through getters, so toggling them takes effect
-  // immediately without rebuilding the editor or disturbing the caret.
-  const flags = useRef({ focusMode: false, typewriter: false })
+  // Focus, typewriter and line numbers read settings through getters, so toggling them
+  // takes effect immediately without rebuilding the editor or disturbing the caret.
+  const flags = useRef({ focusMode: false, typewriter: false, lineNumbers: false })
   flags.current = {
     focusMode: settings?.focusMode ?? false,
     typewriter: settings?.typewriter ?? false,
+    lineNumbers: settings?.showLineNumbers ?? false,
   }
 
   // Defined below; referenced through its setter. This forward declaration is the price of
@@ -494,6 +497,7 @@ const appMenuAnchor = useRef<HTMLButtonElement>(null)
       {
         focusMode: () => flags.current.focusMode,
         typewriter: () => flags.current.typewriter,
+        lineNumbers: () => flags.current.lineNumbers,
       },
       {
         // Resolved at paste time so the active document is always current.
@@ -596,6 +600,14 @@ const appMenuAnchor = useRef<HTMLButtonElement>(null)
 
     requestAnimationFrame(() => requestAnimationFrame(applyScroll))
   }, [editor, doc])
+
+  // A settings change carries no document or selection change, so the decorations are
+  // not recomputed on their own and the toggle would appear to do nothing. This meta is
+  // what makes switching line numbers on take effect at once.
+  useEffect(() => {
+    if (!editor) return
+    editor.view.dispatch(editor.state.tr.setMeta(LINE_NUMBERS_TOGGLE, true))
+  }, [editor, settings?.showLineNumbers])
 
   // Scroll to a requested heading after a wiki link (with `#Heading`) lands in the editor.
   useEffect(() => {
@@ -1220,6 +1232,7 @@ const saveAll = useCallback(async () => {
                     editor={editor}
                     source={source}
                     view="hybrid"
+                    showLineNumbers={settings?.showLineNumbers ?? false}
                     onSourceChange={(text) => {
                       const current = activeDoc(session)
                       if (current) setSession((s) => updateDoc(s, current.id, { source: text }))
@@ -1238,6 +1251,7 @@ const saveAll = useCallback(async () => {
                   editor={editor}
                   source={source}
                   view={view}
+                  showLineNumbers={settings?.showLineNumbers ?? false}
                   onSourceChange={(text) => {
                     const current = activeDoc(session)
                     if (current) setSession((s) => updateDoc(s, current.id, { source: text }))
@@ -1423,11 +1437,13 @@ function EditorPane({
   editor,
   source,
   view,
+  showLineNumbers,
   onSourceChange,
 }: {
   editor: ReturnType<typeof useEditor>
   source: string
   view: ViewMode
+  showLineNumbers: boolean
   onSourceChange: (text: string) => void
 }) {
   const ref = useRef<HTMLTextAreaElement>(null)
@@ -1464,7 +1480,12 @@ function EditorPane({
 
   if (view === 'source') {
     return (
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div className="flex min-h-0 flex-1 overflow-y-auto">
+        <SourceGutter
+          text={source}
+          textareaRef={ref}
+          visible={showLineNumbers}
+        />
         <textarea
           ref={ref}
           className="editor-surface"

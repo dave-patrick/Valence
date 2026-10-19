@@ -21,17 +21,20 @@ import { SyntaxMarkers } from './markers'
 import { InlineMathNode, MathBlockNode, DiagramNode } from './nodes'
 import { ColumnReorder } from './columnDrag'
 import { ViewModes } from './viewModes'
+import { LineNumbers } from './lineNumbers'
 import { ClipboardPaste, type ClipboardHooks } from './clipboard'
 import WikiLink from './wikiLink'
 /** Live switches the editor reads through getters rather than captured values. */
 export interface EditorModeFlags {
   focusMode: () => boolean
   typewriter: () => boolean
+  lineNumbers: () => boolean
 }
 
 const MODES_OFF: EditorModeFlags = {
   focusMode: () => false,
   typewriter: () => false,
+  lineNumbers: () => false,
 }
 
 /** Flags default to off so tests and any headless use can construct an editor directly. */
@@ -48,6 +51,11 @@ export function createExtensions(
     ViewModes.configure({
       focus: flags.focusMode,
       typewriter: flags.typewriter,
+    }),
+
+    // Line numbers in the gutter. Off by default; the setting turns it on.
+    LineNumbers.configure({
+      lineNumbers: flags.lineNumbers,
     }),
 
     // Column drag-to-reorder. Its mouse handling runs through `handleDOMEvents`, so ordering
