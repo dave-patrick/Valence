@@ -113,8 +113,15 @@ export interface Platform {
 
   assoc: {
     isDefault(ext: string): Promise<boolean>
-    setDefault(): Promise<{ ok: boolean; reason?: string }>
+    setDefault(): Promise<{
+      ok: boolean
+      /** Extensions Windows is still handing to another application. */
+      notDefault?: string[]
+      reason?: string
+    }>
     extensions(): Promise<string[]>
+    /** Open Windows' Default Apps page, where a protected choice can be changed. */
+    openDefaultApps(): Promise<void>
   }
 
   clipboard: {

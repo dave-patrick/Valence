@@ -4,6 +4,12 @@ import { watch, type FSWatcher, statSync as statSyncFile } from 'node:fs'
 import { basename, dirname, join } from 'node:path'
 import { preloadPath, resolveDataPath as resolvePath } from './paths'
 import { applyUpdate, canSelfUpdate, checkForUpdate, downloadUpdate, openReleasesPage } from './updater'
+import {
+  ASSOCIATED_EXTENSIONS,
+  isDefaultFor,
+  openDefaultAppsSettings,
+  registerAssociations,
+} from './associations'
 
 const isDev = !app.isPackaged
 
@@ -400,56 +406,41 @@ ipcMain.handle('clip:read', () => ({ text: '', html: '' }))
 
 // File associations: register Valence as the handler for text/markdown files.
 // Done at runtime via the registry because the zip distribution has no installer.
-// Uses HKEY_CURRENT_USER so no admin rights are required.
-const ASSOC_EXTENSIONS = ['.md', '.markdown', '.mdown', '.mkd', '.txt']
-
-ipcMain.handle('assoc:isDefault', async (_e, ext: string) => {
-  if (process.platform !== 'win32') return false
-  const { execFile } = await import('node:child_process')
-  return new Promise((resolve) => {
-    execFile('reg', ['query', `HKCU\\Software\\Classes\\${ext}`, '/v', ''], (err, stdout) => {
-      if (err) { resolve(false); return }
-      resolve(stdout.includes('Valence.Document'))
-    })
-  })
-})
+// Uses HKEY_CURRENT_USER so no admin rights are required. See src/main/associations.ts.
+ipcMain.handle('assoc:isDefault', async (_e, ext: string) => isDefaultFor(ext))
 
 ipcMain.handle('assoc:setDefault', async () => {
-  if (process.platform !== 'win32') return { ok: false, reason: 'unsupported platform' }
-  const { execFile } = await import('node:child_process')
-  const exePath = process.execPath
-  const progId = 'Valence.Document'
-
-  // Register the ProgId with its open command.
-  const commands = [
-    ['add', `HKCU\\Software\\Classes\\${progId}`, '/ve', '/d', 'Valence Document', '/f'],
-    ['add', `HKCU\\Software\\Classes\\${progId}\\DefaultIcon`, '/ve', '/d', `"${exePath}",0`, '/f'],
-    ['add', `HKCU\\Software\\Classes\\${progId}\\shell\\open\\command`, '/ve', '/d', `"${exePath}" "%1"`, '/f'],
-  ]
-
-  // Register each extension -> ProgId.
-  for (const ext of ASSOC_EXTENSIONS) {
-    commands.push(['add', `HKCU\\Software\\Classes\\${ext}`, '/ve', '/d', progId, '/f'])
+  if (process.platform !== 'win32') {
+    return { ok: false, reason: 'file associations are only supported on Windows' }
   }
 
-  for (const cmd of commands) {
-    await new Promise<void>((resolve, reject) => {
-      execFile('reg', cmd, (err) => (err ? reject(err) : resolve()))
-    }).catch(() => {})
+  const failures = await registerAssociations(process.execPath)
+  if (failures.length > 0) {
+    return { ok: false, reason: failures[0] }
   }
 
-  // Refresh the shell so Explorer picks up the new associations.
-  try {
-    const { execFileSync } = await import('node:child_process')
-    execFileSync('ie4uinit.exe', ['-show'], { stdio: 'ignore' })
-  } catch {
-    /* best effort */
+  // Report what Windows will actually do. If the user has already chosen a different
+  // handler for one of these types, the association is registered but Windows keeps
+  // their choice, and saying "done" without saying so would be a lie.
+  const notDefault = []
+  for (const ext of ASSOCIATED_EXTENSIONS) {
+    if (!(await isDefaultFor(ext))) notDefault.push(ext)
   }
 
-  return { ok: true }
+  return {
+    ok: true,
+    notDefault,
+    reason: notDefault.length
+      ? `Valence is registered, but Windows is still using another app for ${notDefault.join(', ')}. Use "Change in Windows settings" to switch it over.`
+      : undefined,
+  }
 })
 
-ipcMain.handle('assoc:extensions', () => ASSOC_EXTENSIONS)
+ipcMain.handle('assoc:extensions', () => ASSOCIATED_EXTENSIONS)
+
+ipcMain.handle('assoc:open-default-apps', () => {
+  openDefaultAppsSettings()
+})
 
 ipcMain.handle('export:formats', () => [
   { id: 'html', label: 'Web Page', extension: 'html' },

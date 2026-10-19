@@ -92,6 +92,7 @@ interface SettingsPanelProps {
   onOpenFolder: () => void
   onCheckUpdates: () => void
   onSetDefault: () => void
+  onOpenDefaultApps: () => void
   onDownloadUpdate: () => void
   onInstallUpdate: () => void
   onOpenReleasesPage: () => void
@@ -99,6 +100,8 @@ interface SettingsPanelProps {
   updateState: UpdateState | null
   /** Fraction of the update download that has completed, or null when not downloading. */
   downloadProgress: number | null
+  /** The current handler for each associated file type, or null if not yet known. */
+  assocState: AssocState[] | null
 }
 
 /** What the settings panel needs to know about any available update. */
@@ -109,6 +112,12 @@ export interface UpdateState {
   selfUpdate?: boolean
 }
 
+/** Which application Windows currently opens each file type with. */
+export interface AssocState {
+  ext: string
+  isDefault: boolean
+}
+
 export function SettingsPanel({
   open,
   onClose,
@@ -117,12 +126,14 @@ export function SettingsPanel({
   onOpenFolder,
   onCheckUpdates,
   onSetDefault,
+  onOpenDefaultApps,
   onDownloadUpdate,
   onInstallUpdate,
   onOpenReleasesPage,
   appVersion,
   updateState,
   downloadProgress,
+  assocState,
 }: SettingsPanelProps) {
   const ref = useRef<HTMLDivElement>(null)
 
@@ -164,12 +175,14 @@ export function SettingsPanel({
           onOpenFolder={onOpenFolder}
           onCheckUpdates={onCheckUpdates}
           onSetDefault={onSetDefault}
+          onOpenDefaultApps={onOpenDefaultApps}
           onDownloadUpdate={onDownloadUpdate}
           onInstallUpdate={onInstallUpdate}
           onOpenReleasesPage={onOpenReleasesPage}
           appVersion={appVersion}
           updateState={updateState}
           downloadProgress={downloadProgress}
+          assocState={assocState}
         />
       </div>
     </>
@@ -182,18 +195,21 @@ function SettingsFields({
   onOpenFolder,
   onCheckUpdates,
   onSetDefault,
+  onOpenDefaultApps,
   onDownloadUpdate,
   onInstallUpdate,
   onOpenReleasesPage,
   appVersion,
   updateState,
   downloadProgress,
+  assocState,
 }: {
   settings: import('@core/settings').Settings
   onChange: (patch: Partial<import('@core/settings').Settings>) => void
   onOpenFolder: () => void
   onCheckUpdates: () => void
   onSetDefault: () => void
+  onOpenDefaultApps: () => void
   onDownloadUpdate: () => void
   onInstallUpdate: () => void
   onOpenReleasesPage: () => void
@@ -201,6 +217,8 @@ function SettingsFields({
   updateState: UpdateState | null
   /** Fraction of the update download that has completed, or null when not downloading. */
   downloadProgress: number | null
+  /** The current handler for each associated file type, or null if not yet known. */
+  assocState: AssocState[] | null
 }) {
   return (
     <div className="valence-settings__body">
@@ -385,18 +403,43 @@ function SettingsFields({
 
      <section>
        <h3>File associations</h3>
-       <Field label="Set as default" hint="Register Valence as the default editor for .md, .markdown, .mdown, .mkd, .txt">
+       <Field
+         label="Set as default"
+         hint="Register Valence as the default editor for Markdown and text files"
+       >
          <button className="valence-btn" onClick={onSetDefault}>
            Set as default
          </button>
        </Field>
-       <div className="valence-field">
-         <span className="valence-field__label">Extensions</span>
-         <p className="valence-hint">.md, .markdown, .mdown, .mkd, .txt</p>
-       </div>
+       {assocState && (
+         <div className="valence-field">
+           <span className="valence-field__label">Current handler</span>
+           <ul className="valence-recents">
+             {assocState.map((a) => (
+               <li key={a.ext}>
+                 <code>{a.ext}</code>{' — '}
+                 {a.isDefault ? (
+                   <span style={{ color: 'var(--ok)' }}>Valence</span>
+                 ) : (
+                   <span style={{ color: 'var(--ink-3)' }}>another app</span>
+                 )}
+               </li>
+             ))}
+           </ul>
+           {assocState.some((a) => !a.isDefault) && (
+             <button
+               className="valence-btn"
+               style={{ marginTop: '0.5rem' }}
+               onClick={onOpenDefaultApps}
+             >
+               Change in Windows settings
+             </button>
+           )}
+         </div>
+       )}
      </section>
-      </section>
-    </div>
+     </section>
+   </div>
   )
 }
 

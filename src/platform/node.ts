@@ -64,8 +64,13 @@ export interface ValenceBridge {
   }
   assoc: {
     isDefault(ext: string): Promise<boolean>
-    setDefault(): Promise<{ ok: boolean; reason?: string }>
+    setDefault(): Promise<{
+      ok: boolean
+      notDefault?: string[]
+      reason?: string
+    }>
     extensions(): Promise<string[]>
+    openDefaultApps(): Promise<void>
   }
   clip: {
     writeText(t: string): Promise<void>
@@ -172,6 +177,7 @@ export function createNodePlatform(): Platform {
       isDefault: (ext) => b.assoc.isDefault(ext),
       setDefault: () => b.assoc.setDefault(),
       extensions: () => b.assoc.extensions(),
+      openDefaultApps: () => b.assoc.openDefaultApps(),
     },
 
     clipboard: {

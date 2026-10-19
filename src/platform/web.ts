@@ -158,6 +158,7 @@ export function createWebPlatform(): Platform {
       async isDefault() { return false },
       async setDefault() { return { ok: false, reason: 'browser' } },
       async extensions() { return [] },
+      async openDefaultApps() {},
     },
 
     clipboard: {

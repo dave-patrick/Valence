@@ -78,6 +78,7 @@ const api = {
     isDefault: (ext: string) => ipcRenderer.invoke('assoc:isDefault', ext),
     setDefault: () => ipcRenderer.invoke('assoc:setDefault'),
     extensions: () => ipcRenderer.invoke('assoc:extensions'),
+    openDefaultApps: () => ipcRenderer.invoke('assoc:open-default-apps'),
   },
   dialog: {
     openFile: () => ipcRenderer.invoke('dialog:openFile'),

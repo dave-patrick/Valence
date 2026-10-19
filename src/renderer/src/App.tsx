@@ -9,7 +9,7 @@ import { StatusBar } from '@ui/StatusBar'
 import { Inspector } from '@ui/Inspector'
 import { StrataGutter } from '@ui/StrataGutter'
 import { TableToolbar } from '@ui/TableToolbar'
-import { TabBar, SettingsPanel, type UpdateState } from '@ui/TabBar'
+import { TabBar, SettingsPanel, type UpdateState, type AssocState } from '@ui/TabBar'
 import { SourceGutter } from '@ui/SourceGutter'
 import { WELCOME } from './welcome'
 import { getPlatform, bridgeStatus } from '@platform'
@@ -193,6 +193,7 @@ const appMenuAnchor = useRef<HTMLButtonElement>(null)
   const [updateState, setUpdateState] = useState<UpdateState | null>(null)
   const [appVersion, setAppVersion] = useState('0.0.0')
   const [downloadProgress, setDownloadProgress] = useState<number | null>(null)
+  const [assocState, setAssocState] = useState<AssocState[] | null>(null)
   const [slashMenu, setSlashMenu] = useState<{
     items: ReturnType<typeof searchSlashItems>
     range: { from: number; to: number; query: string }
@@ -472,6 +473,39 @@ const appMenuAnchor = useRef<HTMLButtonElement>(null)
       return next
     })
   }, [])
+
+  /**
+   * Which application Windows currently opens each associated file type with.
+   *
+   * Shown in the settings panel so "set as default" is something the user can check
+   * rather than something they have to take on trust.
+   */
+  const readAssocState = useCallback(async (): Promise<AssocState[]> => {
+    try {
+      const exts = await platform.assoc.extensions()
+      const out: AssocState[] = []
+      for (const ext of exts) {
+        out.push({ ext, isDefault: await platform.assoc.isDefault(ext) })
+      }
+      return out
+    } catch {
+      return []
+    }
+  }, [platform])
+
+  // Load the current handlers when the settings panel opens, not at startup: it is a
+  // handful of registry reads, and there is no reason to pay for them on every launch.
+  useEffect(() => {
+    if (!settingsOpen) return
+    let cancelled = false
+    void (async () => {
+      const state = await readAssocState()
+      if (!cancelled) setAssocState(state)
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [settingsOpen, readAssocState])
 
   /* ── Editor ────────────────────────────────────────────────── */
 
@@ -1385,14 +1419,26 @@ const saveAll = useCallback(async () => {
         onSetDefault={async () => {
           try {
             const r = await platform.assoc.setDefault()
-            if (r.ok) {
-              notify('File associations set. You may need to restart Explorer.')
-            } else {
+            if (!r.ok) {
               notify(`Could not set file associations: ${r.reason ?? 'unknown error'}`, 'error')
+              return
             }
+            // Say what actually happened. If Windows is still handing one of these to
+            // another application -- because the user chose one there -- then saying
+            // "done" and leaving it would be a lie they would notice the next time
+            // they double-clicked a file.
+            if (r.reason) {
+              notify(r.reason)
+            } else {
+              notify('Valence is now the default editor for Markdown and text files.')
+            }
+            setAssocState(await readAssocState())
           } catch (err) {
             notify(`Failed to set file associations: ${err}`, 'error')
           }
+        }}
+        onOpenDefaultApps={() => {
+          void platform.assoc.openDefaultApps()
         }}
         onDownloadUpdate={async () => {
           notify('Downloading update…')
@@ -1408,6 +1454,7 @@ const saveAll = useCallback(async () => {
         appVersion={appVersion}
         updateState={updateState}
         downloadProgress={downloadProgress}
+        assocState={assocState}
       />
     </div>
   )
