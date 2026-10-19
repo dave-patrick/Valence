@@ -185,25 +185,18 @@ async function writeApplyScript(staged: string, target: string, pid: number): Pr
   // install still restarts correctly.
   const exe = basename(app.getPath('exe'))
 
-  // The wait loop polls for the parent process with tasklist, which is the only thing
-  // guaranteed to be present.
+  // Waiting for the app to exit is what makes this possible at all: the running
+  // executable is locked, and the files behind it cannot be replaced until it is gone.
   //
-  // `findstr`, not `find`. FIND searches the filesystem for a file with the given name,
-  // so `find "59220"` looks for a file called 59220 and reports success whatever it
-  // finds. The loop then never ends, the update is never applied, and the app never
-  // restarts -- with no error anywhere to say why.
-  //
-  // The loop is also bounded, so a tasklist that never agrees cannot strand the user
-  // with an update that silently never lands.
+  // PowerShell's Wait-Process does this in one call. The obvious alternative --
+  // a shell loop polling tasklist -- does not work: a pipe inside a `for` block in a
+  // batch file leaves findstr waiting on a pipe that never closes, so the script hangs
+  // forever and the update is silently never applied. Wait-Process also returns at once
+  // when the process has already gone, and errors quietly rather than failing.
   const contents = [
     '@echo off',
     'setlocal',
-    `for /L %%i in (1,1,300) do (`,
-    `  tasklist /FI "PID eq ${pid}" /NH 2>nul | findstr /C:"${pid}" >nul`,
-    '  if errorlevel 1 goto ready',
-    '  timeout /t 1 /nobreak >nul',
-    ')',
-    ':ready',
+    `powershell -NoProfile -ExecutionPolicy Bypass -Command "Wait-Process -Id ${pid} -ErrorAction SilentlyContinue"`,
     `robocopy "${staged}" "${target}" /MIR /NFL /NDL /NJH /NJS /NP`,
     'if errorlevel 8 exit /b 1',
     `start "" "${join(target, exe)}"`,
