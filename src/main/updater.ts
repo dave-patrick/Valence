@@ -185,14 +185,25 @@ async function writeApplyScript(staged: string, target: string, pid: number): Pr
   // install still restarts correctly.
   const exe = basename(app.getPath('exe'))
 
-  // The wait loop polls for the parent process. `tasklist` is the only thing guaranteed
-  // present, and it returns a non-zero exit code once the process is gone.
+  // The wait loop polls for the parent process with tasklist, which is the only thing
+  // guaranteed to be present.
+  //
+  // `findstr`, not `find`. FIND searches the filesystem for a file with the given name,
+  // so `find "59220"` looks for a file called 59220 and reports success whatever it
+  // finds. The loop then never ends, the update is never applied, and the app never
+  // restarts -- with no error anywhere to say why.
+  //
+  // The loop is also bounded, so a tasklist that never agrees cannot strand the user
+  // with an update that silently never lands.
   const contents = [
     '@echo off',
     'setlocal',
-    `:wait`,
-    `tasklist /FI "PID eq ${pid}" /NH 2>nul | find "${pid}" >nul`,
-    'if not errorlevel 1 (timeout /t 1 /nobreak >nul & goto wait)',
+    `for /L %%i in (1,1,300) do (`,
+    `  tasklist /FI "PID eq ${pid}" /NH 2>nul | findstr /C:"${pid}" >nul`,
+    '  if errorlevel 1 goto ready',
+    '  timeout /t 1 /nobreak >nul',
+    ')',
+    ':ready',
     `robocopy "${staged}" "${target}" /MIR /NFL /NDL /NJH /NJS /NP`,
     'if errorlevel 8 exit /b 1',
     `start "" "${join(target, exe)}"`,
