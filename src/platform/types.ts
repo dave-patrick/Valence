@@ -51,6 +51,11 @@ export type UnsavedChoice = 'save' | 'discard' | 'cancel'
 export interface Platform {
   readonly kind: 'electron' | 'tauri' | 'web'
 
+  app: {
+    /** The running app's version, e.g. "0.1.10". */
+    version(): Promise<string>
+  }
+
   fs: {
     read(path: string): Promise<string>
     write(path: string, contents: string): Promise<void>

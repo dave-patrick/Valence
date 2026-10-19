@@ -44,6 +44,12 @@ export function createWebPlatform(): Platform {
   return {
     kind: 'web',
 
+    app: {
+      async version() {
+        return '0.0.0-dev'
+      },
+    },
+
     fs: {
       async read(path) {
         const v = store.get(path)

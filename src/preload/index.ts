@@ -8,6 +8,10 @@
 import { contextBridge, ipcRenderer } from 'electron'
 
 const api = {
+  app: {
+    /** The running app's version, from package.json. Never hardcoded in the renderer. */
+    version: () => ipcRenderer.invoke('app:version'),
+  },
   fs: {
     read: (path: string) => ipcRenderer.invoke('fs:read', path),
     write: (path: string, contents: string) => ipcRenderer.invoke('fs:write', path, contents),

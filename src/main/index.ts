@@ -260,6 +260,8 @@ ipcMain.handle('doc:pending-files', () => {
   return files
 })
 
+ipcMain.handle('app:version', () => app.getVersion())
+
 ipcMain.handle('update:check', async () => {
   if (!app.isPackaged) return { available: false, version: null, reason: 'dev' }
   try {

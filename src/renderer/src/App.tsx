@@ -189,6 +189,7 @@ export function App() {
 const [appMenuOpen, setAppMenuOpen] = useState(false)
 const appMenuAnchor = useRef<HTMLButtonElement>(null)
   const [updateState, setUpdateState] = useState<UpdateState | null>(null)
+  const [appVersion, setAppVersion] = useState('0.0.0')
   const [slashMenu, setSlashMenu] = useState<{
     items: ReturnType<typeof searchSlashItems>
     range: { from: number; to: number; query: string }
@@ -327,6 +328,12 @@ const appMenuAnchor = useRef<HTMLButtonElement>(null)
     let cancelled = false
 
     void (async () => {
+      // The version comes from the running app, not a constant in this file. A hardcoded
+      // one drifts: the v0.1.9 release shipped assets named 0.1.0 because the number
+      // here said 0.1.0 and the build read it.
+      const version = await platform.app.version().catch(() => '0.0.0')
+      if (!cancelled) setAppVersion(version)
+
       const loaded = await loadSettings()
       if (cancelled) return
       setSettings(loaded)
@@ -1379,7 +1386,7 @@ const saveAll = useCallback(async () => {
         onOpenReleasesPage={() => {
           void platform.update.openReleasesPage()
         }}
-        appVersion="0.1.9"
+        appVersion={appVersion}
         updateState={updateState}
       />
     </div>

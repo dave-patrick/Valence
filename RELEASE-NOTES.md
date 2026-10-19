@@ -8,9 +8,9 @@ the serialisation, not the source you type into. Open, edit, and save a plain Ma
 
 | Platform | File | How to run |
 | --- | --- | --- |
-| Windows | `Valence-0.1.0-win.zip` | Extract it anywhere, then run `Valence.exe` |
-| Linux | `Valence-0.1.0.AppImage` | `chmod +x`, then run it |
-| macOS | `Valence-0.1.0-arm64.dmg` | Open it and drag Valence to Applications |
+| Windows | `Valence-0.1.10-win.zip` | Extract it anywhere, then run `Valence.exe` |
+| Linux | `Valence-0.1.10.AppImage` | `chmod +x`, then run it |
+| macOS | `Valence-0.1.10-arm64.dmg` | Open it and drag Valence to Applications |
 
 **On Windows, extract the zip first.** Running the executable from inside the zip will
 trigger SmartScreen and it will not start.
@@ -39,6 +39,21 @@ workspace folder, and uninstalls by deleting the folder.
 - **Workspace mode** — open a folder for a file tree, workspace-wide search, and the outline
   of the current note.
 - **Focus and typewriter modes**, a daily word goal, light/dark/system themes, and custom CSS.
+
+## What's new in 0.1.10
+
+- **The app icon is right.** The window and taskbar icon was being built from a
+  near-white page with the artwork cropped out of the middle, which left a speckled
+  fringe around a white square. The alpha is now reconstructed from the artwork itself.
+- **Updates work.** Valence checks the GitHub releases feed on launch, and Settings →
+  Updates can check on demand. On Windows and Linux a new build is downloaded and put in
+  place at the next restart. On macOS the build is a disk image, so you are sent to the
+  releases page instead.
+- **Mermaid diagrams render.** They were showing as raw code fences in the reading view.
+- **Theming.** A gallery of named themes (House, Slate, Forest, Amber) and a custom
+  accent colour, applied live.
+- **File associations.** Settings → File associations can register Valence as the
+  default editor for `.md`, `.markdown`, `.mdown`, `.mkd`, and `.txt`.
 
 ## Keyboard shortcuts
 

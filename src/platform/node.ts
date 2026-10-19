@@ -11,6 +11,9 @@ import type { Platform, UnsavedChoice } from './types'
 import { createWebPlatform } from './web'
 
 export interface ValenceBridge {
+  app: {
+    version(): Promise<string>
+  }
   fs: {
     read(path: string): Promise<string>
     write(path: string, contents: string): Promise<void>
@@ -92,6 +95,10 @@ export function createNodePlatform(): Platform {
 
   return {
     kind: 'electron',
+
+    app: {
+      version: () => b.app.version(),
+    },
 
     fs: {
       read: (p) => b.fs.read(p),

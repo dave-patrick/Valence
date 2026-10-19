@@ -10,9 +10,9 @@ Grab the latest build from the [releases page](https://github.com/dave-patrick/V
 
 | Platform | File | How to run |
 | --- | --- | --- |
-| Windows | `Valence-0.1.0-win.zip` | Extract it anywhere, then run `Valence.exe` |
-| Linux | `Valence-0.1.0.AppImage` | `chmod +x`, then run it |
-| macOS | `Valence-0.1.0-arm64.dmg` | Open it, drag Valence to Applications |
+| Windows | `Valence-<version>-win.zip` | Extract it anywhere, then run `Valence.exe` |
+| Linux | `Valence-<version>.AppImage` | `chmod +x`, then run it |
+| macOS | `Valence-<version>-arm64.dmg` | Open it, drag Valence to Applications |
 
 There is no installer. On Windows, extract the zip before running it — launching from inside the archive trips SmartScreen. To uninstall, delete the folder.
 
