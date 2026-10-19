@@ -53,8 +53,8 @@ const api = {
     download: () => ipcRenderer.invoke('update:download'),
     install: () => ipcRenderer.invoke('update:install'),
     openReleasesPage: () => ipcRenderer.invoke('update:releases-page'),
-    onAvailable: (cb: (version: string) => void) => {
-      const handler = (_e: unknown, version: string) => cb(version)
+    onAvailable: (cb: (info: { version: string; selfUpdate: boolean }) => void) => {
+      const handler = (_e: unknown, info: { version: string; selfUpdate: boolean }) => cb(info)
       ipcRenderer.on('update:available', handler)
       return () => ipcRenderer.off('update:available', handler)
     },

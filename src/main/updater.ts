@@ -128,11 +128,21 @@ export async function downloadUpdate(
 
   const total = Number(response.headers.get('content-length') ?? candidate.size ?? 0)
   let received = 0
+  let lastReported = -1
 
   const body = Readable.fromWeb(response.body as never)
   body.on('data', (chunk: Buffer) => {
     received += chunk.length
-    if (total > 0) onProgress?.(Math.min(1, received / total))
+    // Report whole percentages, not every chunk. A 157MB download arrives in a few
+    // thousand chunks, and one IPC message per chunk buries the renderer under
+    // thousands of re-renders -- enough to lock the window up mid-download.
+    if (total > 0) {
+      const percent = Math.floor((received / total) * 100)
+      if (percent !== lastReported) {
+        lastReported = percent
+        onProgress?.(percent / 100)
+      }
+    }
   })
 
   await pipeline(body, createWriteStream(target))

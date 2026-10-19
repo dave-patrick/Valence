@@ -105,7 +105,7 @@ export interface Platform {
     download(): Promise<void>
     install(): Promise<void>
     openReleasesPage(): Promise<void>
-    onAvailable(cb: (version: string) => void): () => void
+    onAvailable(cb: (info: { version: string; selfUpdate: boolean }) => void): () => void
     onProgress(cb: (fraction: number) => void): () => void
     onDownloaded(cb: (version: string) => void): () => void
     onError(cb: (error: string) => void): () => void

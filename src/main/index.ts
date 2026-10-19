@@ -106,8 +106,9 @@ if (gotTheLock) {
 }
 
 /* ── Updater (packaged only) ───────────────────────────────────
-   Checks the GitHub releases feed for a newer build and, if there
-   is one, downloads it and stages the swap for the next launch.
+   Checks the GitHub releases feed for a newer build and tells the
+   renderer about it. The download is the user's to start: a silent
+   150MB fetch on every launch is not something to do unasked.
 
    This is hand-rolled rather than electron-updater because Valence
    ships a bare zip on Windows with no installer, and electron-updater's
@@ -119,7 +120,12 @@ if (app.isPackaged) {
       try {
         const candidate = await checkForUpdate()
         if (!candidate) return
-        if (main) main.webContents.send('update:available', candidate.version)
+        if (main) {
+          main.webContents.send('update:available', {
+            version: candidate.version,
+            selfUpdate: canSelfUpdate(),
+          })
+        }
       } catch {
         /* an unreachable GitHub is not worth interrupting the user over */
       }

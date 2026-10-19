@@ -190,6 +190,7 @@ const [appMenuOpen, setAppMenuOpen] = useState(false)
 const appMenuAnchor = useRef<HTMLButtonElement>(null)
   const [updateState, setUpdateState] = useState<UpdateState | null>(null)
   const [appVersion, setAppVersion] = useState('0.0.0')
+  const [downloadProgress, setDownloadProgress] = useState<number | null>(null)
   const [slashMenu, setSlashMenu] = useState<{
     items: ReturnType<typeof searchSlashItems>
     range: { from: number; to: number; query: string }
@@ -397,18 +398,23 @@ const appMenuAnchor = useRef<HTMLButtonElement>(null)
 
   // Update notifications from main.
   useEffect(() => {
-    const offAvail = platform.update.onAvailable((version) => {
-      setUpdateState({ available: true, version, selfUpdate: true })
-      notify(`Update ${version} is available. Downloading…`)
-      void platform.update.download()
+    const offAvail = platform.update.onAvailable((info) => {
+      setUpdateState({ available: true, version: info.version, selfUpdate: info.selfUpdate })
+      // Announce it and leave the download to the user. Fetching 150MB unasked on
+      // every launch is not a kindness.
+      notify(`Update ${info.version} is available. Download it from Settings.`)
     })
     const offProgress = platform.update.onProgress((fraction) => {
-      notify(`Downloading update… ${Math.round(fraction * 100)}%`)
+      // Progress is not a toast. A toast per event means a toast per percent, which
+      // stacks up and re-renders the whole app while the download is still running.
+      setDownloadProgress(fraction)
     })
     const offDownloaded = (version: string) => {
+      setDownloadProgress(null)
       notify(`Update ${version} ready. Restart to install it.`)
     }
     const offError = (err: string) => {
+      setDownloadProgress(null)
       notify(`Update failed: ${err}`, 'error')
     }
     const offDl = platform.update.onDownloaded(offDownloaded)
@@ -976,8 +982,7 @@ const saveAll = useCallback(async () => {
             const r = await platform.update.check()
             if (r.available) {
               setUpdateState({ available: true, version: r.version, selfUpdate: r.selfUpdate })
-              notify(`Update ${r.version} available — downloading`)
-              await platform.update.download()
+              notify(`Update ${r.version} available — download it from Settings`)
             } else if (r.reason === 'dev') {
               notify('Updates are disabled in development builds.')
             } else if (r.reason === 'up-to-date') {
@@ -1388,6 +1393,7 @@ const saveAll = useCallback(async () => {
         }}
         appVersion={appVersion}
         updateState={updateState}
+        downloadProgress={downloadProgress}
       />
     </div>
   )

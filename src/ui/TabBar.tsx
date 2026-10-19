@@ -97,6 +97,8 @@ interface SettingsPanelProps {
   onOpenReleasesPage: () => void
   appVersion: string
   updateState: UpdateState | null
+  /** Fraction of the update download that has completed, or null when not downloading. */
+  downloadProgress: number | null
 }
 
 /** What the settings panel needs to know about any available update. */
@@ -120,6 +122,7 @@ export function SettingsPanel({
   onOpenReleasesPage,
   appVersion,
   updateState,
+  downloadProgress,
 }: SettingsPanelProps) {
   const ref = useRef<HTMLDivElement>(null)
 
@@ -166,6 +169,7 @@ export function SettingsPanel({
           onOpenReleasesPage={onOpenReleasesPage}
           appVersion={appVersion}
           updateState={updateState}
+          downloadProgress={downloadProgress}
         />
       </div>
     </>
@@ -183,6 +187,7 @@ function SettingsFields({
   onOpenReleasesPage,
   appVersion,
   updateState,
+  downloadProgress,
 }: {
   settings: import('@core/settings').Settings
   onChange: (patch: Partial<import('@core/settings').Settings>) => void
@@ -194,6 +199,8 @@ function SettingsFields({
   onOpenReleasesPage: () => void
   appVersion: string
   updateState: UpdateState | null
+  /** Fraction of the update download that has completed, or null when not downloading. */
+  downloadProgress: number | null
 }) {
   return (
     <div className="valence-settings__body">
@@ -357,8 +364,14 @@ function SettingsFields({
                </button>
              ) : (
                <>
-                 <button className="valence-btn" onClick={onDownloadUpdate}>
-                   Download
+                 <button
+                   className="valence-btn"
+                   onClick={onDownloadUpdate}
+                   disabled={downloadProgress !== null}
+                 >
+                   {downloadProgress === null
+                     ? 'Download'
+                     : `Downloading ${Math.round(downloadProgress * 100)}%`}
                  </button>
                  <button className="valence-btn" onClick={onInstallUpdate}>
                    Install and restart
