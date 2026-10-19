@@ -88,10 +88,20 @@ export interface Platform {
   }
 
   update: {
-    check(): Promise<{ available: boolean; version: string | null; reason?: string }>
+    check(): Promise<{
+      available: boolean
+      version: string | null
+      notes?: string
+      size?: number
+      /** False on macOS, where the build is a disk image that cannot be self-applied. */
+      selfUpdate?: boolean
+      reason?: string
+    }>
     download(): Promise<void>
     install(): Promise<void>
+    openReleasesPage(): Promise<void>
     onAvailable(cb: (version: string) => void): () => void
+    onProgress(cb: (fraction: number) => void): () => void
     onDownloaded(cb: (version: string) => void): () => void
     onError(cb: (error: string) => void): () => void
   }

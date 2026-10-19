@@ -48,10 +48,16 @@ const api = {
     check: () => ipcRenderer.invoke('update:check'),
     download: () => ipcRenderer.invoke('update:download'),
     install: () => ipcRenderer.invoke('update:install'),
+    openReleasesPage: () => ipcRenderer.invoke('update:releases-page'),
     onAvailable: (cb: (version: string) => void) => {
       const handler = (_e: unknown, version: string) => cb(version)
       ipcRenderer.on('update:available', handler)
       return () => ipcRenderer.off('update:available', handler)
+    },
+    onProgress: (cb: (fraction: number) => void) => {
+      const handler = (_e: unknown, fraction: number) => cb(fraction)
+      ipcRenderer.on('update:progress', handler)
+      return () => ipcRenderer.off('update:progress', handler)
     },
     onDownloaded: (cb: (version: string) => void) => {
       const handler = (_e: unknown, version: string) => cb(version)

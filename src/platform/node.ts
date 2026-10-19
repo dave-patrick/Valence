@@ -43,10 +43,19 @@ export interface ValenceBridge {
     onCommand(cb: (id: string) => void): () => void
   }
   update: {
-    check(): Promise<{ available: boolean; version: string | null; reason?: string }>
+    check(): Promise<{
+      available: boolean
+      version: string | null
+      notes?: string
+      size?: number
+      selfUpdate?: boolean
+      reason?: string
+    }>
     download(): Promise<void>
     install(): Promise<void>
+    openReleasesPage(): Promise<void>
     onAvailable(cb: (version: string) => void): () => void
+    onProgress(cb: (fraction: number) => void): () => void
     onDownloaded(cb: (version: string) => void): () => void
     onError(cb: (error: string) => void): () => void
   }
@@ -146,7 +155,9 @@ export function createNodePlatform(): Platform {
       check: () => b.update.check(),
       download: () => b.update.download(),
       install: () => b.update.install(),
+      openReleasesPage: () => b.update.openReleasesPage(),
       onAvailable: (cb) => b.update.onAvailable(cb),
+      onProgress: (cb) => b.update.onProgress(cb),
       onDownloaded: (cb) => b.update.onDownloaded(cb),
       onError: (cb) => b.update.onError(cb),
     },

@@ -8,7 +8,7 @@ import { StatusBar } from '@ui/StatusBar'
 import { Inspector } from '@ui/Inspector'
 import { StrataGutter } from '@ui/StrataGutter'
 import { TableToolbar } from '@ui/TableToolbar'
-import { TabBar, SettingsPanel } from '@ui/TabBar'
+import { TabBar, SettingsPanel, type UpdateState } from '@ui/TabBar'
 import { WELCOME } from './welcome'
 import { getPlatform, bridgeStatus } from '@platform'
 import { parseMarkdown } from '@core/markdown/parse'
@@ -188,6 +188,7 @@ export function App() {
   const [paletteOpen, setPaletteOpen] = useState(false)
 const [appMenuOpen, setAppMenuOpen] = useState(false)
 const appMenuAnchor = useRef<HTMLButtonElement>(null)
+  const [updateState, setUpdateState] = useState<UpdateState | null>(null)
   const [slashMenu, setSlashMenu] = useState<{
     items: ReturnType<typeof searchSlashItems>
     range: { from: number; to: number; query: string }
@@ -390,19 +391,26 @@ const appMenuAnchor = useRef<HTMLButtonElement>(null)
   // Update notifications from main.
   useEffect(() => {
     const offAvail = platform.update.onAvailable((version) => {
+      setUpdateState({ available: true, version, selfUpdate: true })
       notify(`Update ${version} is available. Downloading…`)
       void platform.update.download()
     })
-    const offDownloaded = platform.update.onDownloaded((version) => {
-      notify(`Update ${version} downloaded. It will install on next launch, or click "Install now".`)
+    const offProgress = platform.update.onProgress((fraction) => {
+      notify(`Downloading update… ${Math.round(fraction * 100)}%`)
     })
-    const offError = platform.update.onError((err) => {
-      notify(`Update check failed: ${err}`, 'error')
-    })
+    const offDownloaded = (version: string) => {
+      notify(`Update ${version} ready. Restart to install it.`)
+    }
+    const offError = (err: string) => {
+      notify(`Update failed: ${err}`, 'error')
+    }
+    const offDl = platform.update.onDownloaded(offDownloaded)
+    const offErr = platform.update.onError(offError)
     return () => {
       offAvail()
-      offDownloaded()
-      offError()
+      offProgress()
+      offDl()
+      offErr()
     }
   }, [platform, notify])
 
@@ -960,12 +968,15 @@ const saveAll = useCallback(async () => {
           void (async () => {
             const r = await platform.update.check()
             if (r.available) {
+              setUpdateState({ available: true, version: r.version, selfUpdate: r.selfUpdate })
               notify(`Update ${r.version} available — downloading`)
               await platform.update.download()
             } else if (r.reason === 'dev') {
               notify('Updates are disabled in development builds.')
-            } else {
+            } else if (r.reason === 'up-to-date') {
               notify('You are on the latest version.')
+            } else {
+              notify('Could not check for updates. Is GitHub reachable?', 'error')
             }
           })()
           return
@@ -1332,12 +1343,14 @@ const saveAll = useCallback(async () => {
           try {
             const r = await platform.update.check()
             if (r.available) {
-              notify(`Update ${r.version} available — downloading`)
-              await platform.update.download()
+              setUpdateState({ available: true, version: r.version, selfUpdate: r.selfUpdate })
+              notify(`Update ${r.version} available`)
             } else if (r.reason === 'dev') {
               notify('Updates are disabled in development builds.')
-            } else {
+            } else if (r.reason === 'up-to-date') {
               notify('You are on the latest version.')
+            } else {
+              notify('Could not check for updates. Is GitHub reachable?', 'error')
             }
           } catch (err) {
             notify(`Update check failed: ${err}`, 'error')
@@ -1355,7 +1368,19 @@ const saveAll = useCallback(async () => {
             notify(`Failed to set file associations: ${err}`, 'error')
           }
         }}
+        onDownloadUpdate={async () => {
+          notify('Downloading update…')
+          await platform.update.download()
+        }}
+        onInstallUpdate={async () => {
+          notify('Installing update — Valence will restart.')
+          await platform.update.install()
+        }}
+        onOpenReleasesPage={() => {
+          void platform.update.openReleasesPage()
+        }}
         appVersion="0.1.9"
+        updateState={updateState}
       />
     </div>
   )

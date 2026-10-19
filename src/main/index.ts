@@ -3,7 +3,7 @@ import { readFile, writeFile, stat, readdir, mkdir } from 'node:fs/promises'
 import { watch, type FSWatcher, statSync as statSyncFile } from 'node:fs'
 import { basename, dirname, join } from 'node:path'
 import { preloadPath, resolveDataPath as resolvePath } from './paths'
-import { autoUpdater } from 'electron-updater'
+import { applyUpdate, canSelfUpdate, checkForUpdate, downloadUpdate, openReleasesPage } from './updater'
 
 const isDev = !app.isPackaged
 
@@ -105,27 +105,25 @@ if (gotTheLock) {
   })
 }
 
-/* ── Auto-updater (packaged only) ────────────────────────────────
-   electron-updater checks GitHub releases for a newer version and
-   downloads it in the background. The user is prompted to install
-   when the download completes. In dev mode this is a no-op. */
+/* ── Updater (packaged only) ───────────────────────────────────
+   Checks the GitHub releases feed for a newer build and, if there
+   is one, downloads it and stages the swap for the next launch.
+
+   This is hand-rolled rather than electron-updater because Valence
+   ships a bare zip on Windows with no installer, and electron-updater's
+   Windows path only works with an installer. See src/main/updater.ts. */
 if (app.isPackaged) {
-  autoUpdater.autoDownload = false
-  autoUpdater.autoInstallOnAppQuit = true
-
-  autoUpdater.on('update-available', (info) => {
-    if (main) main.webContents.send('update:available', info.version)
-  })
-  autoUpdater.on('update-downloaded', (info) => {
-    if (main) main.webContents.send('update:downloaded', info.version)
-  })
-  autoUpdater.on('error', (err) => {
-    if (main) main.webContents.send('update:error', String(err))
-  })
-
-  // Check on startup (after a short delay so the window paints first)
+  // Check on startup, after a short delay so the window paints first.
   setTimeout(() => {
-    void autoUpdater.checkForUpdates().catch(() => {})
+    void (async () => {
+      try {
+        const candidate = await checkForUpdate()
+        if (!candidate) return
+        if (main) main.webContents.send('update:available', candidate.version)
+      } catch {
+        /* an unreachable GitHub is not worth interrupting the user over */
+      }
+    })()
   }, 5000)
 }
 
@@ -265,10 +263,19 @@ ipcMain.handle('doc:pending-files', () => {
 ipcMain.handle('update:check', async () => {
   if (!app.isPackaged) return { available: false, version: null, reason: 'dev' }
   try {
-    const result = await autoUpdater.checkForUpdates()
+    const candidate = await checkForUpdate()
+    if (!candidate) {
+      return { available: false, version: null, reason: 'up-to-date' }
+    }
     return {
-      available: result?.updateInfo?.version !== app.getVersion(),
-      version: result?.updateInfo?.version ?? null,
+      available: true,
+      version: candidate.version,
+      notes: candidate.notes,
+      size: candidate.size,
+      // On macOS the build is a disk image, which cannot be applied from a running app.
+      // The renderer uses this to send the user to the releases page instead of
+      // promising something it cannot deliver.
+      selfUpdate: canSelfUpdate(),
     }
   } catch (err) {
     return { available: false, version: null, reason: String(err) }
@@ -278,14 +285,45 @@ ipcMain.handle('update:check', async () => {
 ipcMain.handle('update:download', async () => {
   if (!app.isPackaged) return
   try {
-    await autoUpdater.downloadUpdate()
+    const candidate = await checkForUpdate()
+    if (!candidate) {
+      if (main) main.webContents.send('update:error', 'No update is available.')
+      return
+    }
+    await downloadUpdate(candidate, (fraction) => {
+      if (main) main.webContents.send('update:progress', fraction)
+    })
+    if (main) main.webContents.send('update:downloaded', candidate.version)
   } catch (err) {
     if (main) main.webContents.send('update:error', String(err))
   }
 })
 
-ipcMain.handle('update:install', () => {
-  autoUpdater.quitAndInstall(false, true)
+ipcMain.handle('update:install', async () => {
+  if (!app.isPackaged) return
+  try {
+    const candidate = await checkForUpdate()
+    if (!candidate) {
+      if (main) main.webContents.send('update:error', 'No update is available.')
+      return
+    }
+    const staged = await applyUpdate(candidate)
+    if (!staged) {
+      if (main) main.webContents.send('update:error', 'Could not stage the update.')
+      return
+    }
+    // The apply script waits for this process to exit before it touches anything.
+    // The close guard is bypassed: the user has already confirmed the update, and
+    // the renderer is about to be replaced anyway.
+    closingNow = true
+    app.quit()
+  } catch (err) {
+    if (main) main.webContents.send('update:error', String(err))
+  }
+})
+
+ipcMain.handle('update:releases-page', () => {
+  openReleasesPage()
 })
 
 ipcMain.handle('dialog:openFile', async () => {

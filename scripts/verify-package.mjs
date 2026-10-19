@@ -24,6 +24,9 @@
 
 import { spawn } from 'node:child_process'
 import { createServer } from 'node:net'
+import { rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 
 const exe = process.argv[2]
 if (!exe) {
@@ -40,9 +43,25 @@ const PORT = await new Promise((resolve) => {
   })
 })
 
-const child = spawn(exe, [`--remote-debugging-port=${PORT}`, '--no-sandbox'], {
-  stdio: ['ignore', 'pipe', 'pipe'],
-})
+/**
+ * A private user-data directory for the probe.
+ *
+ * Without this the probe shares Chromium's profile with any Valence already running on
+ * the machine, which produces two failures that look like build problems and are not:
+ *
+ *   - "Lock file can not be created" -- the app's single-instance lock belongs to the
+ *     other instance, so this one quits before it opens a window.
+ *   - "Unable to move the cache: Access is denied" -- the disk cache is in use.
+ *
+ * A release gate has to report on the build, not on whatever else happens to be running.
+ */
+const PROFILE = join(tmpdir(), `valence-verify-${process.pid}`)
+
+const child = spawn(
+  exe,
+  [`--remote-debugging-port=${PORT}`, '--no-sandbox', `--user-data-dir=${PROFILE}`],
+  { stdio: ['ignore', 'pipe', 'pipe'] },
+)
 
 let stderr = ''
 child.stderr.on('data', (d) => (stderr += d))
@@ -74,6 +93,9 @@ async function cleanup(code) {
     }
   }
   await sleep(500)
+  // The probe's profile is scratch. Leaving it behind would fill the temp directory
+  // with a full Chromium profile per run.
+  await rm(PROFILE, { recursive: true, force: true }).catch(() => {})
   process.exit(code)
 }
 

@@ -92,7 +92,19 @@ interface SettingsPanelProps {
   onOpenFolder: () => void
   onCheckUpdates: () => void
   onSetDefault: () => void
+  onDownloadUpdate: () => void
+  onInstallUpdate: () => void
+  onOpenReleasesPage: () => void
   appVersion: string
+  updateState: UpdateState | null
+}
+
+/** What the settings panel needs to know about any available update. */
+export interface UpdateState {
+  available: boolean
+  version: string | null
+  /** False on macOS, where the build is a disk image that cannot be self-applied. */
+  selfUpdate?: boolean
 }
 
 export function SettingsPanel({
@@ -103,7 +115,11 @@ export function SettingsPanel({
   onOpenFolder,
   onCheckUpdates,
   onSetDefault,
+  onDownloadUpdate,
+  onInstallUpdate,
+  onOpenReleasesPage,
   appVersion,
+  updateState,
 }: SettingsPanelProps) {
   const ref = useRef<HTMLDivElement>(null)
 
@@ -139,7 +155,18 @@ export function SettingsPanel({
           </button>
         </header>
 
-        <SettingsFields settings={settings} onChange={onChange} onOpenFolder={onOpenFolder} onCheckUpdates={onCheckUpdates} onSetDefault={onSetDefault} appVersion={appVersion} />
+        <SettingsFields
+          settings={settings}
+          onChange={onChange}
+          onOpenFolder={onOpenFolder}
+          onCheckUpdates={onCheckUpdates}
+          onSetDefault={onSetDefault}
+          onDownloadUpdate={onDownloadUpdate}
+          onInstallUpdate={onInstallUpdate}
+          onOpenReleasesPage={onOpenReleasesPage}
+          appVersion={appVersion}
+          updateState={updateState}
+        />
       </div>
     </>
   )
@@ -151,14 +178,22 @@ function SettingsFields({
   onOpenFolder,
   onCheckUpdates,
   onSetDefault,
+  onDownloadUpdate,
+  onInstallUpdate,
+  onOpenReleasesPage,
   appVersion,
+  updateState,
 }: {
   settings: import('@core/settings').Settings
   onChange: (patch: Partial<import('@core/settings').Settings>) => void
   onOpenFolder: () => void
   onCheckUpdates: () => void
   onSetDefault: () => void
+  onDownloadUpdate: () => void
+  onInstallUpdate: () => void
+  onOpenReleasesPage: () => void
   appVersion: string
+  updateState: UpdateState | null
 }) {
   return (
     <div className="valence-settings__body">
@@ -360,6 +395,33 @@ function SettingsFields({
            Check now
          </button>
        </Field>
+       {updateState && updateState.available && (
+         <Field
+           label={`Update ${updateState.version} available`}
+           hint={
+             updateState.selfUpdate === false
+               ? 'This build is a disk image, so it cannot be installed from here.'
+               : 'Download it, then restart Valence to install.'
+           }
+         >
+           <div className="valence-input-row">
+             {updateState.selfUpdate === false ? (
+               <button className="valence-btn" onClick={onOpenReleasesPage}>
+                 Open releases
+               </button>
+             ) : (
+               <>
+                 <button className="valence-btn" onClick={onDownloadUpdate}>
+                   Download
+                 </button>
+                 <button className="valence-btn" onClick={onInstallUpdate}>
+                   Install and restart
+                 </button>
+               </>
+             )}
+           </div>
+         </Field>
+       )}
      </section>
 
      <section>
