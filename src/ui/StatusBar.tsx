@@ -1,5 +1,6 @@
 import type { ViewMode } from '@/App'
 import type { DocumentStats } from '@features/stats/stats'
+import type { UpdateState } from './TabBar'
 import { formatCount } from '@features/stats/stats'
 
 interface StatusBarProps {
@@ -10,6 +11,8 @@ interface StatusBarProps {
   dirtyCount: number
   view: ViewMode
   onViewChange: (v: ViewMode) => void
+  appVersion: string
+  updateState: UpdateState | null
 }
 
 const MODES: { id: ViewMode; label: string; hint: string }[] = [
@@ -26,6 +29,8 @@ export function StatusBar({
   dirtyCount,
   view,
   onViewChange,
+  appVersion,
+  updateState,
 }: StatusBarProps) {
   return (
     <footer
@@ -62,6 +67,18 @@ export function StatusBar({
             {m.label}
           </button>
         ))}
+        <span className="ml-2 tnum" style={{ color: 'var(--ink-3)' }} title={`Valence ${appVersion}`}>
+          v{appVersion}
+        </span>
+        {updateState?.available && (
+          <span
+            className="ml-1 tnum"
+            style={{ color: 'var(--brass)' }}
+            title={`New version ${updateState.version} available`}
+          >
+            · update available
+          </span>
+        )}
       </div>
 
       <span

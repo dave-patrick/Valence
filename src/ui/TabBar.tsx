@@ -9,6 +9,7 @@ interface TabBarProps {
   position: Exclude<TabBarPosition, 'hidden'>
   onSelect: (id: string) => void
   onClose: (id: string) => void
+  onSetPosition?: (pos: TabBarPosition) => void
 }
 
 /**
@@ -22,9 +23,24 @@ interface TabBarProps {
  * - **Close is a real button with a label**, not a bare glyph. The dirty dot replaces the
  *   glyph while the tab is unsaved, and `title` always says what clicking does.
  */
-export function TabBar({ session, position, onSelect, onClose }: TabBarProps) {
+export function TabBar({ session, position, onSelect, onClose, onSetPosition }: TabBarProps) {
   const stripRef = useRef<HTMLDivElement>(null)
   const activeRef = useRef<HTMLButtonElement>(null)
+  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null)
+
+  useEffect(() => {
+    if (!menu) return
+    const close = () => setMenu(null)
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setMenu(null) }
+    document.addEventListener('click', close)
+    document.addEventListener('contextmenu', close)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('click', close)
+      document.removeEventListener('contextmenu', close)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [menu])
 
   // Keep the active tab in view when it changes, so switching from the keyboard or a
   // restored session does not leave the tab off-screen. `scrollIntoView` is absent in some
@@ -40,9 +56,42 @@ export function TabBar({ session, position, onSelect, onClose }: TabBarProps) {
       className="valence-tabs"
       role="tablist"
       aria-label="Open documents"
-      aria-orientation="horizontal"
+      aria-orientation={position === 'left' || position === 'right' ? 'vertical' : 'horizontal'}
       data-position={position}
+      onContextMenu={(e) => {
+        if (!onSetPosition) return
+        e.preventDefault()
+        setMenu({ x: e.clientX, y: e.clientY })
+      }}
     >
+      {menu && onSetPosition && (
+        <div
+          className="valence-tabmenu"
+          style={{
+            position: 'fixed',
+            left: menu.x,
+            top: menu.y,
+            minWidth: 160,
+            background: 'var(--surface)',
+            border: '1px solid var(--rule)',
+            borderRadius: '6px',
+            padding: '4px 0',
+            boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.45)',
+            zIndex: 60,
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {(['top', 'bottom', 'left', 'right', 'hidden'] as TabBarPosition[]).map((pos) => (
+            <button
+              key={pos}
+              onClick={() => { onSetPosition(pos); setMenu(null) }}
+              className="flex w-full items-center gap-3 px-4 py-2 text-sm text-[var(--ink)] hover:bg-[var(--surface-2)] hover:text-[var(--accent)]"
+            >
+              <span>{pos === 'top' ? 'Top' : pos === 'bottom' ? 'Bottom' : 'Hidden'}</span>
+            </button>
+          ))}
+        </div>
+      )}
       <div className="valence-tabs__strip" ref={stripRef}>
         {session.documents.map((doc) => {
           const selected = doc.id === session.activeId
@@ -231,6 +280,8 @@ function SettingsFields({
             options={[
               { value: 'top', label: 'Top' },
               { value: 'bottom', label: 'Bottom' },
+              { value: 'left', label: 'Left' },
+              { value: 'right', label: 'Right' },
               { value: 'hidden', label: 'Hidden' },
             ]}
           />

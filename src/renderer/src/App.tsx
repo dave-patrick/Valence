@@ -188,8 +188,25 @@ export function App() {
   const [exportOpen, setExportOpen] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
   const [paletteOpen, setPaletteOpen] = useState(false)
-const [appMenuOpen, setAppMenuOpen] = useState(false)
-const appMenuAnchor = useRef<HTMLButtonElement>(null)
+  const [appMenuOpen, setAppMenuOpen] = useState(false)
+  const appMenuAnchor = useRef<HTMLButtonElement>(null)
+  const [barMenu, setBarMenu] = useState<{ x: number; y: number } | null>(null)
+
+// Clicking anywhere else dismisses the bar position menu.
+useEffect(() => {
+  if (!barMenu) return
+  const close = () => setBarMenu(null)
+  const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setBarMenu(null) }
+  document.addEventListener('click', close)
+  document.addEventListener('contextmenu', close)
+  document.addEventListener('keydown', onKey)
+  return () => {
+    document.removeEventListener('click', close)
+    document.removeEventListener('contextmenu', close)
+    document.removeEventListener('keydown', onKey)
+  }
+}, [barMenu])
+
   const [updateState, setUpdateState] = useState<UpdateState | null>(null)
   const [appVersion, setAppVersion] = useState('0.0.0')
   const [downloadProgress, setDownloadProgress] = useState<number | null>(null)
@@ -696,35 +713,36 @@ const appMenuAnchor = useRef<HTMLButtonElement>(null)
     if (view !== 'split' && !exportOpen) return
     let cancelled = false
 
-    void renderToHtml(source, { mode: themeState.base }).then(
-      (r) => {
-        if (cancelled) return
-        // Paint the prose now; diagrams arrive later. Waiting for Mermaid first left the
-        // whole reader blank whenever a document contained even one diagram.
-        setReadHtml(r.html)
-        setReadError(null)
+    const timer = setTimeout(() => {
+      void renderToHtml(source, { mode: themeState.base }).then(
+        (r) => {
+          if (cancelled) return
+          // Paint the prose now; diagrams arrive later. Waiting for Mermaid first left the
+          // whole reader blank whenever a document contained even one diagram.
+          setReadHtml(r.html)
+          setReadError(null)
 
-
-        if (r.diagrams > 0) {
-          void r.hydrated.then((h) => {
-            console.error('DEBUG hydrated html:', h.slice(0, 200))
-            if (!cancelled) setReadHtml(h)
-          })
-        }
-      },
-      // Without this the rejection is unhandled and the read pane just stays empty, which
-      // looks identical to a slow render. A blank pane with a quiet console is the worst
-      // possible failure mode for a feature whose entire job is to show you something.
-      (e: unknown) => {
-        if (cancelled) return
-        const message = e instanceof Error ? e.message : String(e)
-        setReadError(message)
-        console.error('render failed', e)
-      },
-    )
+          if (r.diagrams > 0) {
+            void r.hydrated.then((h) => {
+              if (!cancelled) setReadHtml(h)
+            })
+          }
+        },
+        // Without this the rejection is unhandled and the read pane just stays empty, which
+        // looks identical to a slow render. A blank pane with a quiet console is the worst
+        // possible failure mode for a feature whose entire job is to show you something.
+        (e: unknown) => {
+          if (cancelled) return
+          const message = e instanceof Error ? e.message : String(e)
+          setReadError(message)
+          console.error('render failed', e)
+        },
+      )
+    }, 150)
 
     return () => {
       cancelled = true
+      clearTimeout(timer)
     }
   }, [view, exportOpen, source, themeState.base])
 
@@ -1135,7 +1153,14 @@ const saveAll = useCallback(async () => {
   return (
     <div className="flex h-full flex-col" style={{ background: 'var(--bg)' }}>
       {bridgeMissing && <BridgeFaultBanner />}
-      <div className="flex items-center gap-2 px-2 py-1 h-10 border-b border-rule" style={{ background: 'var(--surface)' }}>
+      <div
+        className="flex items-center gap-2 px-2 py-1 h-10 border-b border-rule"
+        style={{ background: 'var(--surface)' }}
+        onContextMenu={(e) => {
+          e.preventDefault()
+          setBarMenu({ x: e.clientX, y: e.clientY })
+        }}
+      >
         <button
           ref={appMenuAnchor}
           onClick={() => setAppMenuOpen((o) => !o)}
@@ -1162,6 +1187,7 @@ const saveAll = useCallback(async () => {
               position="top"
               onSelect={(id) => setSession((s) => setActiveDoc(s, id))}
               onClose={(id) => void closeTab(id)}
+              onSetPosition={(pos) => patchSettings({ tabBar: pos })}
             />
           </div>
         )}
@@ -1190,9 +1216,46 @@ const saveAll = useCallback(async () => {
             }}
           />
         )}
+        {barMenu && (
+          <div
+            className="valence-tabmenu"
+            style={{
+              position: 'fixed',
+              left: barMenu.x,
+              top: barMenu.y,
+              minWidth: 140,
+              background: 'var(--surface)',
+              border: '1px solid var(--rule)',
+              borderRadius: '6px',
+              padding: '4px 0',
+              boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.45)',
+              zIndex: 60,
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {(['top', 'left', 'right', 'bottom'] as const).map((pos) => (
+              <button
+                key={pos}
+                onClick={() => { patchSettings({ tabBar: pos }); setBarMenu(null) }}
+                className="flex w-full items-center gap-3 px-4 py-2 text-sm text-[var(--ink)] hover:bg-[var(--surface-2)] hover:text-[var(--accent)]"
+              >
+                <span>{pos.charAt(0).toUpperCase() + pos.slice(1)}</span>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="flex min-h-0 flex-1">
+        {tabBar === 'left' && (
+          <TabBar
+            session={session}
+            position="left"
+            onSelect={(id) => setSession((s) => setActiveDoc(s, id))}
+            onClose={(id) => void closeTab(id)}
+            onSetPosition={(pos) => patchSettings({ tabBar: pos })}
+          />
+        )}
         <Rail
           panel={panel}
           onSelect={setPanel}
@@ -1315,6 +1378,15 @@ const saveAll = useCallback(async () => {
 
           <TableToolbar editor={editor} />
         </main>
+        {tabBar === 'right' && (
+          <TabBar
+            session={session}
+            position="right"
+            onSelect={(id) => setSession((s) => setActiveDoc(s, id))}
+            onClose={(id) => void closeTab(id)}
+            onSetPosition={(pos) => patchSettings({ tabBar: pos })}
+          />
+        )}
       </div>
 
       <StatusBar
@@ -1325,6 +1397,8 @@ const saveAll = useCallback(async () => {
         dirtyCount={session.documents.filter(isDirty).length}
         view={view}
         onViewChange={setView}
+        appVersion={appVersion}
+        updateState={updateState}
       />
 
       {tabBar === 'bottom' && (
@@ -1333,6 +1407,7 @@ const saveAll = useCallback(async () => {
           position="bottom"
           onSelect={(id) => setSession((s) => setActiveDoc(s, id))}
           onClose={(id) => void closeTab(id)}
+          onSetPosition={(pos) => patchSettings({ tabBar: pos })}
         />
       )}
 

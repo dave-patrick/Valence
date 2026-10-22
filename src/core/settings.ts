@@ -6,7 +6,7 @@
  * a valid value is live here, where they can be tested.
  */
 
-export type TabBarPosition = 'top' | 'bottom' | 'hidden'
+export type TabBarPosition = 'top' | 'bottom' | 'left' | 'right' | 'hidden'
 export type ThemePreference = 'system' | 'light' | 'dark'
 
 import { normaliseHex } from './theme'
@@ -87,7 +87,7 @@ export function normaliseSettings(input: unknown): Settings {
   const raw = input as Record<string, unknown>
 
   return {
-    tabBar: oneOf(raw['tabBar'], ['top', 'bottom', 'hidden'], DEFAULT_SETTINGS.tabBar),
+    tabBar: oneOf(raw['tabBar'], ['top', 'bottom', 'left', 'right', 'hidden'], DEFAULT_SETTINGS.tabBar),
     theme: oneOf(raw['theme'], ['system', 'light', 'dark'], DEFAULT_SETTINGS.theme),
     themeId: str(raw['themeId']) || DEFAULT_SETTINGS.themeId,
     accentColor: normaliseHex(str(raw['accentColor'])),
