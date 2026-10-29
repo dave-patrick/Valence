@@ -1089,7 +1089,7 @@ const saveAll = useCallback(async () => {
             } else if (r.reason === 'up-to-date') {
               notify('You are on the latest version.')
             } else {
-              notify('Could not check for updates. Is GitHub reachable?', 'error')
+              notify(r.reason || 'Could not check for updates. Is GitHub reachable?', 'error')
             }
           })()
           return
@@ -1536,7 +1536,7 @@ const saveAll = useCallback(async () => {
             } else if (r.reason === 'up-to-date') {
               notify('You are on the latest version.')
             } else {
-              notify('Could not check for updates. Is GitHub reachable?', 'error')
+              notify(r.reason || 'Could not check for updates. Is GitHub reachable?', 'error')
             }
           } catch (err) {
             notify(`Update check failed: ${err}`, 'error')

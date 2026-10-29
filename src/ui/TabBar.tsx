@@ -417,9 +417,14 @@ function SettingsFields({
          <span className="valence-version">{buildId}</span>
        </Field>
        <Field label="Check for updates" hint="Manual check against GitHub releases">
-         <button className="valence-btn" onClick={onCheckUpdates}>
-           Check now
-         </button>
+         <div className="valence-input-row">
+           <button className="valence-btn" onClick={onCheckUpdates}>
+             Check now
+           </button>
+           <button className="valence-btn" onClick={onOpenReleasesPage}>
+             Open releases
+           </button>
+         </div>
        </Field>
        {updateState && updateState.available && (
          <Field

@@ -11,12 +11,33 @@
  * is demonstrated without booting Electron.
  */
 
-import { describe, expect, it, beforeAll, afterAll, afterEach } from 'vitest'
+import { describe, expect, it, beforeAll, afterAll, afterEach, vi } from 'vitest'
 import { createElement } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 
 let container: HTMLDivElement
 let root: Root
+
+describe('update check feedback', () => {
+  it('shows the failed-check reason and leaves a manual releases link available', async () => {
+    const { getPlatform } = await import('../src/platform')
+    const platform = getPlatform()
+    const check = vi.spyOn(platform.update, 'check').mockResolvedValue({
+      available: false, version: null, reason: 'GitHub returned HTTP 403. The request limit was reached.',
+    })
+    const releases = vi.spyOn(platform.update, 'openReleasesPage').mockResolvedValue()
+    try {
+      click(container.querySelector('[aria-label="Settings"]'))
+      await waitFor(() => byLabel('Check now'), 'update check button')
+      click(byLabel('Check now'))
+      await waitFor(() => container.querySelector('[role="status"]')?.textContent?.includes('HTTP 403'), 'update request error')
+      expect(container.querySelector('[role="status"]')!.textContent).not.toContain('latest version')
+      click(byLabel('Open releases'))
+      expect(releases).toHaveBeenCalledOnce()
+      click(container.querySelector('[aria-label="Close settings"]'))
+    } finally { check.mockRestore(); releases.mockRestore() }
+  })
+})
 
 beforeAll(async () => {
   // jsdom ships neither of these and the editor uses both on mount.

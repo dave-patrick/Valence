@@ -24,7 +24,7 @@
  * behind as stale cruft.
  */
 
-import { app, BrowserWindow, shell } from 'electron'
+import { app, BrowserWindow, net, shell } from 'electron'
 import { spawn } from 'node:child_process'
 import { createWriteStream } from 'node:fs'
 import { copyFile, chmod, mkdir, readdir, rename, rm, stat, writeFile } from 'node:fs/promises'
@@ -60,25 +60,35 @@ function platform(): UpdatePlatform {
 /**
  * Fetch the latest release from GitHub.
  *
- * @returns the release, or null if GitHub is unreachable or says something unexpected
+ * Failed checks must reject: null is reserved for a successful check with no update.
  */
-export async function fetchLatestRelease(): Promise<ReleaseInfo | null> {
+export async function fetchLatestRelease(): Promise<ReleaseInfo> {
+  await app.whenReady()
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), 15_000)
   try {
-    const response = await fetch(API, {
+    const response = await net.fetch(API, {
+      cache: 'no-store',
       signal: controller.signal,
       headers: {
         Accept: 'application/vnd.github+json',
         'User-Agent': 'Valence',
       },
     })
-    if (!response.ok) return null
+    if (!response.ok) {
+      const limited = response.status === 429 || response.headers.get('x-ratelimit-remaining') === '0'
+      throw new Error(`GitHub returned HTTP ${response.status}.${limited ? ' The request limit was reached; try again later or open the releases page.' : ''}`)
+    }
     const payload = (await response.json()) as ReleaseInfo
-    if (!payload || typeof payload.tag_name !== 'string') return null
+    if (!payload || typeof payload.tag_name !== 'string' || !Array.isArray(payload.assets)) {
+      throw new Error('GitHub returned an invalid release response.')
+    }
     return payload
-  } catch {
-    return null
+  } catch (error) {
+    if (controller.signal.aborted) throw new Error('The update check timed out. Check your connection and try again.')
+    const detail = error instanceof Error ? error.message : String(error)
+    const cause = error instanceof Error && error.cause instanceof Error ? ` (${error.cause.message})` : ''
+    throw new Error(`Could not check GitHub for updates: ${detail}${cause}`)
   } finally {
     clearTimeout(timer)
   }
@@ -87,11 +97,10 @@ export async function fetchLatestRelease(): Promise<ReleaseInfo | null> {
 /**
  * Work out whether there is an update to offer.
  *
- * @returns the candidate, or null when the app is current or the check failed
+ * @returns the candidate, or null after a successful check finds no newer release
  */
 export async function checkForUpdate(): Promise<UpdateCandidate | null> {
   const release = await fetchLatestRelease()
-  if (!release) return null
   return planUpdate(release, app.getVersion(), platform())
 }
 
@@ -121,7 +130,8 @@ export async function downloadUpdate(
   await mkdir(dir, { recursive: true })
   const target = join(dir, candidate.assetName)
 
-  const response = await fetch(candidate.assetUrl, {
+  await app.whenReady()
+  const response = await net.fetch(candidate.assetUrl, {
     headers: { 'User-Agent': 'Valence' },
   })
   if (!response.ok) throw new Error(`download failed: ${response.status}`)

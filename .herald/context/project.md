@@ -17,6 +17,7 @@ Valence - a local-first Markdown editor. Typora seamless reading, MarkText edito
 
 - Document extensions are defined in `src/shared/fileTypes.ts` for file discovery and pickers. Non-Markdown documents stay in the raw text editor and bypass Markdown conversion.
 - Outline navigation uses source offsets for text and schema-parsed prefix heading counts for the rich editor; DOM heading IDs are not required.
+- Updater requests use Electron `net.fetch` after app readiness so system proxy configuration is respected. Failed release checks reject with a diagnostic error; they must never be classified as an up-to-date result. Manual checks bypass cached release responses.
 - Preserve existing project instructions, configuration, credentials, and application data.
 - Use Graft for code context when available, following the global and project Graft guidance.
 - Keep this context accurate as project architecture and conventions are established.
