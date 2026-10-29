@@ -1,0 +1,12 @@
+version: "1.0"
+project:
+  name: "Valence"
+  description: "Valence - a local-first Markdown editor. Typora seamless reading, MarkText editor depth, modernised."
+layers:
+  context: true
+  skills: false
+  commands: false
+  agents: false
+  permissions: false
+compatible_with:
+  - any

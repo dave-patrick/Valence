@@ -21,6 +21,7 @@ export interface ValenceBridge {
     stat(path: string): Promise<unknown>
     exists(path: string): Promise<boolean>
     listDir(path: string): Promise<unknown[]>
+    listDirRecursive(path: string): Promise<unknown[]>
     watch(path: string): Promise<void>
     unwatch(path: string): Promise<void>
     reveal(path: string): Promise<void>
@@ -112,6 +113,7 @@ export function createNodePlatform(): Platform {
       stat: async (p) => (await b.fs.stat(p)) as never,
       exists: (p) => b.fs.exists(p),
       listDir: async (p) => (await b.fs.listDir(p)) as never,
+      listDirRecursive: async (p) => (await b.fs.listDirRecursive(p)) as never,
       async watch(path) {
         if (watched.has(path)) {
           return () => {

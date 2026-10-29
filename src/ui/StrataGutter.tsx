@@ -4,6 +4,7 @@ import type { OutlineEntry } from '@features/outline/outline'
 interface StrataGutterProps {
   headings: OutlineEntry[]
   active: string
+  onNavigate: (heading: OutlineEntry) => void
 }
 
 /**
@@ -22,7 +23,7 @@ interface StrataGutterProps {
  * about the position indicator, and "strata" still describes stacked layers honestly. The
  * visual language is what changed.
  */
-export function StrataGutter({ headings, active }: StrataGutterProps) {
+export function StrataGutter({ headings, active, onNavigate }: StrataGutterProps) {
   const geometry = useMemo(() => {
     if (!headings.length) return []
     const levels = headings.map((h) => h.level)
@@ -71,9 +72,7 @@ export function StrataGutter({ headings, active }: StrataGutterProps) {
         return (
           <button
             key={shell.id + i}
-            onClick={() =>
-              document.getElementById(shell.id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-            }
+            onClick={() => onNavigate(headings[i])}
             title={`${shell.text}  (level ${shell.level})`}
             aria-label={`Go to ${shell.text}, heading level ${shell.level}`}
             className="rounded-sm transition-opacity duration-150"

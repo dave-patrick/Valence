@@ -64,6 +64,8 @@ export interface Platform {
     stat(path: string): Promise<FileStat | null>
     exists(path: string): Promise<boolean>
     listDir(path: string): Promise<FileStat[]>
+    /** Recursive listing in one call — avoids N IPC round-trips for deep workspaces. */
+    listDirRecursive?(path: string): Promise<FileStat[]>
     watch(path: string, onChange: () => void): Promise<() => void>
     reveal(path: string): Promise<void>
   }

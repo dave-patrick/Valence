@@ -42,6 +42,23 @@ const DEFAULTS: Required<ParseOptions> = {
   html: true,
 }
 
+const parseMdCache = new Map<string, MarkdownItInstance>()
+const registeredParseMd = new Set<MarkdownItInstance>()
+
+function getParseMarkdownIt(opts: Required<ParseOptions>): MarkdownItInstance {
+  const key = `${opts.html}|${opts.linkify}|${opts.typographer}`
+  let md = parseMdCache.get(key)
+  if (!md) {
+    md = new MarkdownIt({
+      html: opts.html,
+      linkify: opts.linkify,
+      typographer: opts.typographer,
+    })
+    parseMdCache.set(key, md)
+  }
+  return md
+}
+
 export function parseMarkdown(source: string, options: ParseOptions = {}): ParsedDocument {
   const opts = { ...DEFAULTS, ...options }
 
@@ -49,12 +66,9 @@ export function parseMarkdown(source: string, options: ParseOptions = {}): Parse
   const { body: afterFootnotes, defs } = liftFootnotes(afterFrontMatter)
   const { body } = liftDisplayMath(afterFootnotes)
 
-  const md = new MarkdownIt({
-    html: opts.html,
-    linkify: opts.linkify,
-    typographer: opts.typographer,
-  })
+  const md = getParseMarkdownIt(opts)
 
+  if (!registeredParseMd.has(md)) {
   // Inline math. `$$…$$` was already lifted to a block fence by `liftDisplayMath`, so a
   // single `$` pair here is unambiguously inline math.
   md.inline.ruler.before('emphasis', 'math_inline', (state, silent) => {
@@ -131,6 +145,9 @@ export function parseMarkdown(source: string, options: ParseOptions = {}): Parse
     state.pos = end + 2
     return true
   })
+
+    registeredParseMd.add(md)
+  }
 
   const tokens = md.parse(body, {})
 
@@ -436,7 +453,7 @@ interface DisplayMathSpan {
  * Returns null for an unterminated `$$` so a stray dollar sign stays literal text rather
  * than swallowing the rest of the document.
  */
-function displayMathSpan(lines: string[], i: number): DisplayMathSpan | null {
+export function displayMathSpan(lines: string[], i: number): DisplayMathSpan | null {
   const trimmed = (lines[i] ?? '').trim()
 
   if (trimmed.startsWith('$$') && trimmed.endsWith('$$') && trimmed.length > 4) {

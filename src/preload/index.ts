@@ -19,6 +19,7 @@ const api = {
     stat: (path: string) => ipcRenderer.invoke('fs:stat', path),
     exists: (path: string) => ipcRenderer.invoke('fs:exists', path),
     listDir: (path: string) => ipcRenderer.invoke('fs:list', path),
+    listDirRecursive: (path: string) => ipcRenderer.invoke('fs:listRecursive', path),
     watch: (path: string) => ipcRenderer.invoke('fs:watch', path),
     unwatch: (path: string) => ipcRenderer.invoke('fs:unwatch', path),
     reveal: (path: string) => ipcRenderer.invoke('fs:reveal', path),

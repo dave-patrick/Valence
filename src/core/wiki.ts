@@ -29,7 +29,8 @@
 
 // Plain text documents are workspaces too; keeping these in sync with the file tree keeps a
 // note you can see in the tree a note the indexer can resolve.
-export const DOCUMENT_EXTENSIONS = ['md', 'markdown', 'mdown', 'mkd', 'mdx', 'txt']
+import { DOCUMENT_EXTENSIONS } from '@shared/fileTypes'
+export { DOCUMENT_EXTENSIONS } from '@shared/fileTypes'
 
 /* ──────────────────────────────────────────────────────────────
  * Parsing

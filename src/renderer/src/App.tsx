@@ -16,9 +16,11 @@ import { getPlatform, bridgeStatus } from '@platform'
 import { parseMarkdown } from '@core/markdown/parse'
 import { serialiseMarkdown, plainText } from '@core/markdown/serialise'
 import { blocksToHtml, htmlToBlocks } from '@core/htmlBridge'
-import { renderToHtml } from '@core/render'
+import { renderToHtml, renderPlainTextToHtml } from '@core/render'
 import { computeStats } from '@features/stats/stats'
-import { outlineOf } from '@features/outline/outline'
+import { outlineOf, type OutlineEntry } from '@features/outline/outline'
+import { headingIndex } from '@features/outline/navigation'
+import { isMarkdownDocument, preserveLineEndings } from '@shared/fileTypes'
 import { buildBacklinks, resolveWikiLink } from '@core/wiki'
 import { useWorkspace } from '@features/workspace'
 import { ExportDialog } from '@features/export/ExportDialog'
@@ -224,7 +226,11 @@ useEffect(() => {
 
   const doc = activeDoc(session)
   const source = doc?.source ?? ''
-  const headings = useMemo(() => outlineOf(source), [source])
+  const markdownDocument = isMarkdownDocument(doc?.path ?? null)
+  const effectiveView = markdownDocument ? view : 'source'
+  const sourceRef = useRef<HTMLTextAreaElement>(null)
+  const headings = useMemo(() => markdownDocument ? outlineOf(source) : [], [source, markdownDocument])
+  const textHtml = useMemo(() => markdownDocument ? '' : renderPlainTextToHtml(source, doc?.title), [markdownDocument, source, doc?.title])
 
   const workspace = useWorkspace(settings?.workspaceRoot ?? '')
 
@@ -591,6 +597,7 @@ useEffect(() => {
       },
     },
     onUpdate: ({ editor: e }) => {
+      if (!isMarkdownDocument(activeDoc(sessionRef.current)?.path ?? null)) return
       // The single conversion point: editor HTML -> block state -> markdown.
       const blocks = htmlToBlocks(e.getHTML())
       const { text } = serialiseMarkdown(null, blocks)
@@ -638,6 +645,7 @@ useEffect(() => {
     if (loadedFor.current === doc.id) return
 
     loadedFor.current = doc.id
+    if (!isMarkdownDocument(doc.path)) return
     editor.commands.setContent(blocksToHtml(parseMarkdown(doc.source).blocks), { emitUpdate: false })
 
     // Restore this document's scroll position once the new content has been laid out.
@@ -650,7 +658,35 @@ useEffect(() => {
     }
 
     requestAnimationFrame(() => requestAnimationFrame(applyScroll))
-  }, [editor, doc])
+  }, [editor, doc, markdownDocument])
+
+  const navigateHeading = useCallback((heading: OutlineEntry) => {
+    setActiveHeading(heading.text)
+    if (effectiveView === 'source') {
+      const textarea = sourceRef.current
+      if (!textarea) return
+      const prefix = source.slice(0, heading.offset).replace(/\r\n/g, '\n')
+      textarea.focus()
+      textarea.setSelectionRange(prefix.length, prefix.length)
+      const style = getComputedStyle(textarea)
+      const top = (prefix.match(/\n/g) ?? []).length * parseFloat(style.lineHeight)
+      textarea.scrollTop = top
+      textarea.dispatchEvent(new Event('scroll'))
+      return
+    }
+    if (!editor) return
+    const index = headingIndex(source, heading.offset, editor.schema)
+    let current = 0
+    let position: number | null = null
+    editor.state.doc.descendants((node, pos) => {
+      if (node.type.name === 'heading' && current++ === index) position = pos
+    })
+    if (position === null) return
+    editor.commands.setTextSelection(position + 1)
+    editor.commands.focus(undefined, { scrollIntoView: false })
+    const element = editor.view.nodeDOM(position)
+    if (element instanceof HTMLElement) element.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [editor, source, effectiveView])
 
   // A settings change carries no document or selection change, so the decorations are
   // not recomputed on their own and the toggle would appear to do nothing. This meta is
@@ -691,9 +727,9 @@ useEffect(() => {
 
 
   useEffect(() => {
-    if (!editor || !editor.isEditable) return
-    editor.setEditable(view !== 'split')
-  }, [editor, view])
+    if (!editor) return
+    editor.setEditable(markdownDocument && view !== 'split', false)
+  }, [editor, view, markdownDocument])
 
   // Focus mode's decorations recompute on document or selection change, neither of which a
   // settings toggle produces. An empty transaction nudges the plugin so the toggle is
@@ -710,7 +746,7 @@ useEffect(() => {
     // Split view shows the render, and the export dialog needs it too -- PDF goes through
     // the print pipeline, so it must be the same HTML the reader would have seen, not a
     // second rendering that can drift from it.
-    if (view !== 'split' && !exportOpen) return
+    if (!markdownDocument || (view !== 'split' && !exportOpen)) return
     let cancelled = false
 
     const timer = setTimeout(() => {
@@ -744,7 +780,7 @@ useEffect(() => {
       cancelled = true
       clearTimeout(timer)
     }
-  }, [view, exportOpen, source, themeState.base])
+  }, [view, exportOpen, source, themeState.base, markdownDocument])
 
   /* ── File operations ───────────────────────────────────────── */
 
@@ -999,11 +1035,12 @@ const saveAll = useCallback(async () => {
         case 'edit.copyMarkdown':
           return void platform.clipboard.writeText(source)
         case 'edit.copyHtml':
+          if (!markdownDocument) return void platform.clipboard.writeHtml(textHtml)
           return void renderToHtml(source, { mode: themeState.base }).then((r) =>
             platform.clipboard.writeHtml(r.html),
           )
         case 'edit.copyPlain':
-          return void platform.clipboard.writeText(plainText(parseMarkdown(source).blocks))
+          return void platform.clipboard.writeText(markdownDocument ? plainText(parseMarkdown(source).blocks) : source)
 
         case 'view.hybrid':
           return setView('hybrid')
@@ -1076,6 +1113,8 @@ const saveAll = useCallback(async () => {
       settings,
       patchSettings,
       themeState.base,
+      markdownDocument,
+      textHtml,
     ],
   )
 
@@ -1247,6 +1286,11 @@ const saveAll = useCallback(async () => {
       </div>
 
       <div className="flex min-h-0 flex-1">
+        <Rail
+          panel={panel}
+          onSelect={setPanel}
+          onSettings={() => setSettingsOpen(true)}
+        />
         {tabBar === 'left' && (
           <TabBar
             session={session}
@@ -1256,11 +1300,6 @@ const saveAll = useCallback(async () => {
             onSetPosition={(pos) => patchSettings({ tabBar: pos })}
           />
         )}
-        <Rail
-          panel={panel}
-          onSelect={setPanel}
-          onSettings={() => setSettingsOpen(true)}
-        />
 
         {panel && (
           <>
@@ -1268,6 +1307,8 @@ const saveAll = useCallback(async () => {
               width={sidebarWidth}
               kind={panel}
               headings={headings}
+              onNavigate={navigateHeading}
+              textDocument={!markdownDocument}
               source={source}
               activePath={doc?.path ?? null}
               backlinks={backlinks}
@@ -1323,9 +1364,13 @@ const saveAll = useCallback(async () => {
         <main className="relative flex min-w-0 flex-1 flex-col">
           <div className="flex min-h-0 flex-1">
             <div className="flex min-w-0 flex-1 flex-col">
-              {view === 'split' ? (
+              {effectiveView === 'split' ? (
                 <div className="split-pane">
                   <EditorPane
+                    key={doc?.id}
+                    sourceRef={sourceRef}
+                    markdownDocument={markdownDocument}
+                    originalSource={doc?.saved ?? source}
                     editor={editor}
                     source={source}
                     view="hybrid"
@@ -1345,9 +1390,13 @@ const saveAll = useCallback(async () => {
                 </div>
               ) : (
                 <EditorPane
+                  key={doc?.id}
+                  sourceRef={sourceRef}
+                  markdownDocument={markdownDocument}
+                  originalSource={doc?.saved ?? source}
                   editor={editor}
                   source={source}
-                  view={view}
+                  view={effectiveView}
                   showLineNumbers={settings?.showLineNumbers ?? false}
                   onSourceChange={(text) => {
                     const current = activeDoc(session)
@@ -1364,7 +1413,7 @@ const saveAll = useCallback(async () => {
                 goal={settings?.dailyWordGoal ?? 0}
               />
             )}
-            <StrataGutter headings={headings} active={activeHeading} />
+            <StrataGutter headings={headings} active={activeHeading} onNavigate={navigateHeading} />
           </div>
 
            {slashMenu && (
@@ -1395,7 +1444,8 @@ const saveAll = useCallback(async () => {
         dirty={dirty}
         tabCount={session.documents.length}
         dirtyCount={session.documents.filter(isDirty).length}
-        view={view}
+        view={effectiveView}
+        textDocument={!markdownDocument}
         onViewChange={setView}
         appVersion={appVersion}
         updateState={updateState}
@@ -1438,7 +1488,8 @@ const saveAll = useCallback(async () => {
       {exportOpen && (
         <ExportDialog
           markdown={source}
-          html={readHtml}
+          html={markdownDocument ? readHtml : textHtml}
+          textDocument={!markdownDocument}
           sourcePath={doc?.path ?? null}
           title={headings[0]?.text ?? null}
           onClose={() => setExportOpen(false)}
@@ -1556,48 +1607,55 @@ const DEFAULT_SAFE: Settings = {
 }
 
 function EditorPane({
+  sourceRef: ref,
+  markdownDocument,
+  originalSource,
   editor,
   source,
   view,
   showLineNumbers,
   onSourceChange,
 }: {
+  sourceRef: React.RefObject<HTMLTextAreaElement | null>
+  markdownDocument: boolean
+  originalSource: string
   editor: ReturnType<typeof useEditor>
   source: string
   view: ViewMode
   showLineNumbers: boolean
   onSourceChange: (text: string) => void
 }) {
-  const ref = useRef<HTMLTextAreaElement>(null)
   /** Guards the round trip: editor update -> session -> editor update must not loop. */
   const applying = useRef(false)
+  const syncedSource = useRef<string | null>(null)
 
   // Source mode is a live view of the same document, not a second buffer. Text typed here is
   // parsed straight back into editor state, which is why switching views never converts
   // anything and the caret and undo history survive.
   useEffect(() => {
-    if (view !== 'source' || !editor) return
-    const el = ref.current
-    if (!el || el.value === source) return
+    if (view !== 'source' || !editor || !markdownDocument) return
+    if (syncedSource.current === source) return
 
     applying.current = true
-    el.value = source
     editor.commands.setContent(blocksToHtml(parseMarkdown(source).blocks), { emitUpdate: false })
+    syncedSource.current = source
     applying.current = false
-  }, [view, source, editor])
+  }, [view, source, editor, markdownDocument])
 
   const handle = useCallback(
     (text: string) => {
-      onSourceChange(text)
-      if (editor && !applying.current) {
+      const preserved = preserveLineEndings(text, originalSource)
+      onSourceChange(preserved)
+      if (editor && markdownDocument && !applying.current) {
         applying.current = true
         editor.commands.setContent(blocksToHtml(parseMarkdown(text).blocks), {
           emitUpdate: false,
         })
+        syncedSource.current = preserved
         applying.current = false
       }
     },
-    [editor, onSourceChange],
+    [editor, onSourceChange, markdownDocument, originalSource],
   )
 
   if (view === 'source') {
@@ -1612,10 +1670,11 @@ function EditorPane({
           ref={ref}
           className="editor-surface"
           data-view="source"
-          defaultValue={source}
+          value={source.replace(/\r\n/g, '\n')}
+          wrap="off"
           onChange={(e) => handle(e.target.value)}
           spellCheck={false}
-          aria-label="Markdown source"
+          aria-label={markdownDocument ? 'Markdown source' : 'Text source'}
           style={{ border: 'none', resize: 'none', display: 'block' }}
         />
       </div>

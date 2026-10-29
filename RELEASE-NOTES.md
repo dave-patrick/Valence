@@ -1,74 +1,26 @@
-# Valence
+# Valence 0.2.1
 
-A local-first Markdown editor. The document is a live WYSIWYG surface; the `.md` file is
-the serialisation, not the source you type into. Open, edit, and save a plain Markdown file
-— nothing proprietary, no database, no lock-in.
+Build: **2026.29.10.2**
+
+## Changes
+
+- Open and edit YAML/YML, LOG, JSON/JSONL, TOML, INI, CFG/CONF, XML, CSV/TSV, and TXT alongside Markdown. Text files use a plain text editor that preserves indentation and the original LF or CRLF line-ending convention.
+- Click an outline entry or a position-bar marker to jump to its Markdown section in Hybrid, Source, or Split view. Repeated and formatted headings navigate to their own sections; code, math, and HTML blocks no longer create phantom outline headings.
+- Export text documents to escaped HTML or PDF using their current contents. Restoring a Markdown snapshot in Source view also updates the rich editor.
+- Show the release version and build ID separately in Settings and the status bar. Line numbers are available under Settings → Writing.
+- Improve workspace browsing and recursive file discovery, and refresh document rendering.
+- Stage Windows builds at `C:\Users\davem\Apps\Valence`. Staging closes the app normally and stops if files remain locked, preserving the chosen application path.
 
 ## Downloads
 
-| Platform | File | How to run |
-| --- | --- | --- |
-| Windows | `Valence-0.1.10-win.zip` | Extract it anywhere, then run `Valence.exe` |
-| Linux | `Valence-0.1.10.AppImage` | `chmod +x`, then run it |
-| macOS | `Valence-0.1.10-arm64.dmg` | Open it and drag Valence to Applications |
+Each artifact filename includes release **0.2.1** and build **2026.29.10.2**.
 
-**On Windows, extract the zip first.** Running the executable from inside the zip will
-trigger SmartScreen and it will not start.
+- Windows x64: extract the ZIP, then run `Valence.exe`. Close the previous copy before launching the updated app.
+- Linux: mark the AppImage executable, then run it.
+- macOS: open the DMG and drag Valence to Applications.
 
-There is no installer. Valence makes no registry entries, writes nothing outside your
-workspace folder, and uninstalls by deleting the folder.
+## Verification
 
-## What works
-
-- **Three views of one document.** Hybrid (formatting visible, syntax hidden), Source (raw
-  Markdown), and Split. Switching does not convert or lose anything — the editor document
-  is the document, and Markdown is how it serialises.
-- **Markdown that round-trips.** Tables, task lists, fenced code, footnotes, front matter,
-  maths, and `[[wiki links]]` survive an edit/save/reopen cycle byte-for-byte.
-- **Syntax highlighting** via Shiki, **maths** via KaTeX (inline and display).
-- **Slash commands** — type `/` for headings, lists, tables, code, math, quotes, dividers.
-- **Smart paste.** Paste a heading from a web page and it arrives as a heading, not
-  `## Pasted`. Paste an image and it is written next to the document and linked.
-- **Command palette** (`Ctrl+P`) covering every menu action and keyboard shortcut.
-- **Wiki links and backlinks.** `[[Other note]]` renders as a link, opens on click, and
-  shows up in the target's backlinks panel. Clicking a link to a note that does not exist
-  creates it.
-- **Version history** (`Ctrl+H`). Every save snapshots; browse the list, diff two versions,
-  restore one.
-- **Export** to PDF and single-file HTML, plus Word/EPUB/LaTeX if you have Pandoc installed.
-- **Workspace mode** — open a folder for a file tree, workspace-wide search, and the outline
-  of the current note.
-- **Focus and typewriter modes**, a daily word goal, light/dark/system themes, and custom CSS.
-
-## What's new in 0.1.10
-
-- **The app icon is right.** The window and taskbar icon was being built from a
-  near-white page with the artwork cropped out of the middle, which left a speckled
-  fringe around a white square. The alpha is now reconstructed from the artwork itself.
-- **Updates work.** Valence checks the GitHub releases feed on launch, and Settings →
-  Updates can check on demand. On Windows and Linux a new build is downloaded and put in
-  place at the next restart. On macOS the build is a disk image, so you are sent to the
-  releases page instead.
-- **Mermaid diagrams render.** They were showing as raw code fences in the reading view.
-- **Theming.** A gallery of named themes (House, Slate, Forest, Amber) and a custom
-  accent colour, applied live.
-- **File associations.** Settings → File associations can register Valence as the
-  default editor for `.md`, `.markdown`, `.mdown`, `.mkd`, and `.txt`.
-
-## Keyboard shortcuts
-
-| | |
-| --- | --- |
-| `Ctrl+P` | Command palette |
-| `Ctrl+S` | Save |
-| `Ctrl+E` | Export |
-| `Ctrl+H` | Version history |
-| `Ctrl+N` | New document |
-| `Ctrl+W` | Close tab |
-| `Ctrl+/` | Toggle theme |
-| `Ctrl+,` | Settings |
-
-## Reporting problems
-
-Open an issue with what you did and what you expected instead. The test plan in
-`docs/test-plan.md` lists what is verified and what is known to be unproven.
+- 511 automated tests, TypeScript checking, and Herald validation passed locally.
+- The Windows package passed startup, preload bridge, file read/write, and local asset checks. Outline navigation was manually verified in the installed Windows app with a long document.
+- GitHub Actions also builds Windows, Linux, and macOS packages and verifies startup of the unpacked Linux application before publishing.

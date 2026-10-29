@@ -103,6 +103,45 @@ function createHighlighter() {
   )
 }
 
+let cachedRenderMd: ReturnType<typeof MarkdownIt> | null = null
+let currentPending: { id: string; lang: string; code: string }[] = []
+
+function getRenderMarkdownIt(): ReturnType<typeof MarkdownIt> {
+  if (!cachedRenderMd) {
+    cachedRenderMd = new MarkdownIt({
+      html: true,
+      linkify: true,
+      typographer: false, // never in export - it silently rewrites the user's bytes
+    })
+      .use((m) => {
+        m.block.ruler.before('fence', 'valence_math_block', MATH_BLOCK)
+        m.inline.ruler.push('valence_math_inline', MATH_INLINE)
+      })
+      .use((m) => {
+        m.renderer.rules.math_inline = (tokens, idx) =>
+          katex.renderToString(tokens[idx]!.content, { throwOnError: false, displayMode: false })
+        m.renderer.rules.math_block = (tokens, idx) =>
+          `<div class="valence-math">${katex.renderToString(tokens[idx]!.content, {
+            throwOnError: false,
+            displayMode: true,
+          })}</div>`
+      })
+      .use((m) => {
+        // Shiki is async and markdown-it's renderer is synchronous, so fences emit
+        // placeholders that are swapped in after render() returns. This keeps the renderer
+        // synchronous instead of forking markdown-it's render loop.
+        m.renderer.rules.fence = (tokens, idx) => {
+          const token = tokens[idx]!
+          const lang = (token.info || '').trim().split(/\s+/)[0] || 'text'
+          const id = `valence-code-${currentPending.length}`
+          currentPending.push({ id, lang, code: token.content })
+          return `<div id="${id}"></div>`
+        }
+      })
+  }
+  return cachedRenderMd
+}
+
 export async function renderToHtml(source: string, options: RenderOptions = {}): Promise<RenderResult> {
   const mode = options.mode ?? 'light'
   const { data, body } = parseFrontMatter(source)
@@ -111,42 +150,11 @@ export async function renderToHtml(source: string, options: RenderOptions = {}):
   cachedHighlighter ??= createHighlighter()
   const hl = await cachedHighlighter
 
-  const md = new MarkdownIt({
-    html: true,
-    linkify: true,
-    typographer: false, // never in export â€” it silently rewrites the user's bytes
-  })
-    .use((m) => {
-      m.block.ruler.before('fence', 'valence_math_block', MATH_BLOCK)
-      m.inline.ruler.push('valence_math_inline', MATH_INLINE)
-    })
-    .use((m) => {
-      m.renderer.rules.math_inline = (tokens, idx) =>
-        katex.renderToString(tokens[idx]!.content, { throwOnError: false, displayMode: false })
-      m.renderer.rules.math_block = (tokens, idx) =>
-        `<div class="valence-math">${katex.renderToString(tokens[idx]!.content, {
-          throwOnError: false,
-          displayMode: true,
-        })}</div>`
-    })
-    .use((m) => {
-      // Shiki is async and markdown-it's renderer is synchronous, so fences emit
-      // placeholders that are swapped in after render() returns. This keeps the renderer
-      // synchronous instead of forking markdown-it's render loop.
-      const pending: { id: string; lang: string; code: string }[] = []
-      m.renderer.rules.fence = (tokens, idx) => {
-        const token = tokens[idx]!
-        const lang = (token.info || '').trim().split(/\s+/)[0] || 'text'
-        const id = `valence-code-${pending.length}`
-        pending.push({ id, lang, code: token.content })
-        return `<div id="${id}"></div>`
-      }
-      ;(m as unknown as { __pending: typeof pending }).__pending = pending
-    })
+  currentPending = []
+  const md = getRenderMarkdownIt()
 
   const bodyHtml = md.render(body, {})
-  const pending =
-    (md as unknown as { __pending: { id: string; lang: string; code: string }[] }).__pending ?? []
+  const pending = currentPending
 
   let resolved = bodyHtml
   const theme = mode === 'dark' ? 'github-dark' : 'github-light'
@@ -241,6 +249,11 @@ async function renderDiagrams(html: string, diagrams: readonly Diagram[], mode: 
     out = out.replace(PLACEHOLDER, `<figure class="${failed ? FAILURE : DIAGRAM}">${body}</figure>`)
   }
   return out
+}
+
+/** Literal text export: escaping preserves config/log contents without interpreting markup. */
+export function renderPlainTextToHtml(source: string, title = 'Untitled'): string {
+  return standaloneDocument(title, `<pre style="white-space:pre-wrap;overflow-wrap:anywhere">${escapeHtml(source)}</pre>`, {})
 }
 
 function standaloneDocument(title: string, bodyHtml: string, options: RenderOptions): string {

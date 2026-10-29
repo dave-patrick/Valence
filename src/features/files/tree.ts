@@ -32,16 +32,12 @@ interface PendingFile {
 }
 
 export type TreeNode =
-  | { kind: 'file'; path: string; name: string; size: number }
-  | { kind: 'dir'; path: string; name: string; children: TreeNode[] }
+  | { kind: 'file'; path: string; name: string; size: number; docCount: number }
+  | { kind: 'dir'; path: string; name: string; children: TreeNode[]; docCount: number }
 
 /** Extensions the workspace panel treats as documents. Everything else is hidden. */
-export const DOCUMENT_EXTENSIONS = ['md', 'markdown', 'mdown', 'mkd', 'mdx', 'txt']
-
-export function isDocument(path: string): boolean {
-  const ext = path.split('.').pop()?.toLowerCase() ?? ''
-  return DOCUMENT_EXTENSIONS.includes(ext)
-}
+export { DOCUMENT_EXTENSIONS, isDocument } from '@shared/fileTypes'
+import { isDocument } from '@shared/fileTypes'
 
 /** Files that should never appear in the tree — editor and VCS noise. */
 const IGNORED = new Set([
@@ -101,12 +97,15 @@ export function buildTree(root: string, entries: readonly FileEntry[]): TreeNode
   const materialise = (node: Mutable): TreeNode[] => {
     const dirs: TreeNode[] = [...node.dirs.values()]
       .filter((d) => !isIgnored(d.name))
-      .map((d) => ({ kind: 'dir', path: d.path, name: d.name, children: materialise(d) }))
+      .map((d) => {
+        const children = materialise(d)
+        return { kind: 'dir', path: d.path, name: d.name, children, docCount: children.reduce((n, c) => n + c.docCount, 0) }
+      })
 
     const files: TreeNode[] = node.files
       .slice()
       .sort((a, b) => a.name.localeCompare(b.name))
-      .map((f) => ({ kind: 'file', path: f.path, name: f.name, size: f.size }))
+      .map((f) => ({ kind: 'file', path: f.path, name: f.name, size: f.size, docCount: 1 }))
 
     return [...sortDirs(dirs), ...files]
   }

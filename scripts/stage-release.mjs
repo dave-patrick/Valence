@@ -3,7 +3,7 @@
  *
  * The release loop is: build here, put it where you can run it, you test it, and only then
  * does anything get tagged and pushed to GitHub. This script is the first half of that --
- * it produces a verified, unpacked, runnable app at C:\Users\davem\Valence by default, and
+ * it produces a verified, unpacked, runnable app at C:\Users\davem\Apps\Valence by default, and
  * refuses to declare success unless the packaged app actually starts.
  *
  *   node scripts/stage-release.mjs [destination] [--no-build]
@@ -20,9 +20,9 @@ import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
-const DEFAULT_DEST = 'C:\\Users\\davem\\Valence'
+const DEFAULT_DEST = 'C:\\Users\\davem\\Apps\\Valence'
 
-let dest = resolve(process.argv[2] && !process.argv[2].startsWith('--') ? process.argv[2] : DEFAULT_DEST)
+const dest = resolve(process.argv[2] && !process.argv[2].startsWith('--') ? process.argv[2] : DEFAULT_DEST)
 const skipBuild = process.argv.includes('--no-build')
 
 const IS_WIN = process.platform === 'win32'
@@ -124,122 +124,42 @@ function assertStagedIsFresh(builtAsar, stagedAsar) {
 console.log(`  extracting ${zip}...`)
 
 /**
- * Stop any Valence running out of a previous staging folder.
- *
- * A running build holds app.asar mapped, Windows will not replace it, and neither
- * `rmSync` nor `Expand-Archive -Force` can get past it. That is the whole reason the
- * numbered fallbacks below exist -- the destination is locked by the last build, and
- * the only way out is to close it.
- *
- * These are test copies. The one being replaced is the one that was just superseded, so
- * closing it is the point rather than a side effect.
+ * Ask the destination's app to close normally so its unsaved-work guard can run.
+ * Refuse to replace it if the user cancels or a process still holds the files.
  */
 function stopRunningValence() {
   if (!IS_WIN) return
   const script = `
-$ErrorActionPreference = 'SilentlyContinue'
-Get-Process -Name Valence -ErrorAction SilentlyContinue |
-  Where-Object { $_.Path -like '${DEFAULT_DEST.replace(/'/g, "''")}*' } |
-  ForEach-Object { Write-Output $_.Id; Stop-Process -Id $_.Id -Force }
+$ErrorActionPreference = 'Stop'
+$stageExe = '${join(dest, 'Valence.exe').replace(/'/g, "''")}'
+$stageProcesses = @(Get-Process -Name Valence -ErrorAction SilentlyContinue | Where-Object { $_.Path -eq $stageExe })
+foreach ($stageProcess in $stageProcesses) {
+  if ($stageProcess.MainWindowHandle -ne 0) { [void]$stageProcess.CloseMainWindow() }
+}
+$stageDeadline = (Get-Date).AddSeconds(20)
+do {
+  $stageRemaining = @(Get-Process -Name Valence -ErrorAction SilentlyContinue | Where-Object { $_.Path -eq $stageExe })
+  if ($stageRemaining.Count -eq 0) { exit 0 }
+  Start-Sleep -Milliseconds 250
+} while ((Get-Date) -lt $stageDeadline)
+Write-Error 'Valence is still running. Save your work and close Valence, then run staging again.'
+exit 1
 `
-  const out = runCommandSync('powershell', [
+  const result = spawnSync('powershell', [
     '-NoProfile',
     '-NonInteractive',
     '-Command',
     script,
-  ])
-  const killed = out
-    .split(/\r?\n/)
-    .map((l) => l.trim())
-    .filter((l) => /^\d+$/.test(l))
-  if (killed.length) {
-    console.log(`  stopped ${killed.length} running Valence: ${killed.join(', ')}`)
-    // Give the OS a moment to release the file handles.
-    sleepSync(1500)
-  }
-}
-
-/** Run a command and capture its output rather than inheriting the console. */
-function runCommandSync(command, args) {
-  const result = spawnSync(command, args, { cwd: ROOT, encoding: 'utf8', shell: false })
-  return result.stdout ?? ''
-}
-
-/** Block for a while, without pulling in a dependency. */
-function sleepSync(ms) {
-  const end = Date.now() + ms
-  while (Date.now() < end) {
-    // Busy wait: the whole point is to let the OS release handles, and this is a
-    // one-off pause in a script that runs once per build.
-  }
-}
-
-/**
- * Remove the numbered fallbacks from earlier runs.
- *
- * When the default destination is locked, the build lands in `Valence-1`, then
- * `Valence-1-2`, and so on. Each of those is a full copy of the application, and none
- * of them was ever cleaned up: five builds in a session left five folders, some holding
- * a hundred megabytes each, all of them stale.
- *
- * The fallback exists to get *a* fresh build in front of the person testing. It is not
- * a place to keep history.
- */
-function cleanUpOldStagings() {
-  const parent = dirname(dest)
-  const base = basename(dest).replace(/-\d+(-(\d+))?$/, '')
-  const prefix = `${base}-`
-
-  let removed = 0
-  let entries = []
-  try {
-    entries = readdirSync(parent, { withFileTypes: true })
-  } catch {
-    return
-  }
-
-  for (const entry of entries) {
-    if (!entry.isDirectory()) continue
-    if (!entry.name.startsWith(prefix)) continue
-    // The one that was just staged is not old.
-    if (join(parent, entry.name) === dest) continue
-
-    try {
-      rmSync(join(parent, entry.name), { recursive: true, force: true })
-      removed++
-    } catch {
-      // Locked by something. Leave it; it is empty or stale, and the next run tries again.
-    }
-  }
-  if (removed) console.log(`  removed ${removed} older staging folder${removed === 1 ? '' : 's'}`)
+  ], { cwd: ROOT, encoding: 'utf8', shell: false, windowsHide: true })
+  if (result.error || result.status !== 0) throw new Error(result.stderr || result.error?.message || 'Close Valence before staging.')
 }
 
 stopRunningValence()
 
-// If a Valence from an earlier session holds app.asar locked, rmSync fails and
-// neither deletion nor Expand-Archive -Force can replace it. The freshness
-// proof below works on whichever folder we land in, so try a numbered
-// alternative instead of extracting over a locked (possibly stale) build.
-let attempt = 1
-while (true) {
-  try {
-    rmSync(dest, { recursive: true, force: true })
-    break
-  } catch (e) {
-    if (attempt > 10) {
-      throw new Error(
-        `cannot clear ${dest}: ${e.code ?? e.message}\n` +
-          `Close any running Valence and re-run.`,
-      )
-    }
-    const next = `${dest}-${attempt}`
-    console.warn(`\n  ${dest} is locked; staging at ${next} instead\n`)
-    dest = next
-    attempt++
-  }
-}
+// Keep the destination stable so the user's shortcut always runs this build.
+// Locked files fail staging rather than sending the build to a different folder.
+rmSync(dest, { recursive: true, force: true })
 await extractZip(join(releaseDir, zip), dest)
-cleanUpOldStagings()
 assertStagedIsFresh(
   join(releaseDir, 'win-unpacked', 'resources', 'app.asar'),
   join(dest, 'resources', 'app.asar'),

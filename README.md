@@ -10,9 +10,9 @@ Grab the latest build from the [releases page](https://github.com/dave-patrick/V
 
 | Platform | File | How to run |
 | --- | --- | --- |
-| Windows | `Valence-<version>-win.zip` | Extract it anywhere, then run `Valence.exe` |
-| Linux | `Valence-<version>.AppImage` | `chmod +x`, then run it |
-| macOS | `Valence-<version>-arm64.dmg` | Open it, drag Valence to Applications |
+| Windows | `Valence-<version>-build-<build-id>-win-x64.zip` | Extract it anywhere, then run `Valence.exe` |
+| Linux | `Valence-<version>-build-<build-id>-linux-<arch>.AppImage` | `chmod +x`, then run it |
+| macOS | `Valence-<version>-build-<build-id>-mac-<arch>.dmg` | Open it, drag Valence to Applications |
 
 There is no installer. On Windows, extract the zip before running it — launching from inside the archive trips SmartScreen. To uninstall, delete the folder.
 
@@ -54,19 +54,30 @@ The full analysis, with evidence and issue references, is in `docs/01-reverse-en
 
 ## Running it
 
+Valence opens Markdown (`md`, `markdown`, `mdown`, `mkd`, `mdx`) and text files
+(`txt`, `yaml`, `yml`, `log`, `json`, `jsonl`, `toml`, `ini`, `cfg`, `conf`, `xml`,
+`csv`, `tsv`). Text files use a plain text editor that preserves indentation and line
+endings. Both the outline links and the position bar jump to Markdown sections in
+Hybrid, Source, and Split views, including sections with repeated titles.
+
 ```
 pnpm install
 pnpm dev          # Electron
 pnpm dev:web      # renderer in a browser, backed by the in-memory platform
 pnpm test         # round-trip + purity + app smoke
 pnpm typecheck
-pnpm stage        # build, unpack and verify a Windows build at C:\Users\davem\Valence
+pnpm stage        # build, unpack and verify a Windows build at C:\Users\davem\Apps\Valence
 ```
 
 ### How a release happens
 
+Increment the semantic version for each new build. Keep the build ID separate, using
+`YYYY.DD.MM.revision` in America/Phoenix time; increase the revision for each distinct
+source/build set without resetting it on a new date. Retries and platform variants of
+the same build keep its ID. Public tags remain `v<version>` for updater compatibility.
+
 ```
-pnpm stage   ->  C:\Users\davem\Valence\Valence.exe   you test this
+pnpm stage   ->  C:\Users\davem\Apps\Valence\Valence.exe   you test this
 you approve  ->  git tag v0.1.x && git push --tags    CI builds and publishes
 ```
 

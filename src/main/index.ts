@@ -2,6 +2,7 @@ import { app, BrowserWindow, dialog, ipcMain, Menu, shell } from 'electron'
 import { readFile, writeFile, stat, readdir, mkdir } from 'node:fs/promises'
 import { watch, type FSWatcher, statSync as statSyncFile } from 'node:fs'
 import { basename, dirname, join } from 'node:path'
+import { DOCUMENT_EXTENSIONS } from '../shared/fileTypes'
 import { preloadPath, resolveDataPath as resolvePath } from './paths'
 import { applyUpdate, canSelfUpdate, checkForUpdate, downloadUpdate, openReleasesPage } from './updater'
 import {
@@ -220,6 +221,35 @@ ipcMain.handle('fs:list', async (_e, path: string) => {
     return []
   }
 })
+
+ipcMain.handle('fs:listRecursive', async (_e, path: string) => {
+  const target = resolveDataPath(path)
+  const out: { path: string; size: number; mtimeMs: number; isDirectory: boolean }[] = []
+  async function walk(dir: string): Promise<void> {
+    let entries
+    try {
+      entries = await readdir(dir, { withFileTypes: true })
+    } catch {
+      return
+    }
+    for (const e of entries) {
+      const full = `${dir}/${e.name}`
+      if (e.isDirectory()) {
+        out.push({ path: full, size: 0, mtimeMs: 0, isDirectory: true })
+        await walk(full)
+      } else {
+        try {
+          const s = await stat(full)
+          out.push({ path: full, size: s.size, mtimeMs: s.mtimeMs, isDirectory: false })
+        } catch {
+          out.push({ path: full, size: 0, mtimeMs: 0, isDirectory: false })
+        }
+      }
+    }
+  }
+  await walk(target)
+  return out
+})
 ipcMain.handle('fs:reveal', (_e, path: string) => shell.showItemInFolder(resolveDataPath(path)))
 
 ipcMain.handle('fs:watch', (_e, path: string) => {
@@ -343,7 +373,10 @@ ipcMain.handle('update:releases-page', () => {
 ipcMain.handle('dialog:openFile', async () => {
   const r = await dialog.showOpenDialog({
     properties: ['openFile', 'multiSelections'],
-    filters: [{ name: 'Markdown', extensions: ['md', 'markdown', 'mdown', 'mkd'] }],
+    filters: [
+      { name: 'Text documents', extensions: DOCUMENT_EXTENSIONS },
+      { name: 'All files', extensions: ['*'] },
+    ],
   })
   return { paths: r.canceled ? [] : r.filePaths }
 })

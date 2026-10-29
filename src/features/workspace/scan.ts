@@ -50,6 +50,7 @@ export function isVaultDocument(path: string): boolean {
 export async function scanVault(
   root: string,
   listDir: (path: string) => Promise<readonly VaultEntry[]>,
+  listDirRecursive?: (path: string) => Promise<readonly VaultEntry[]>,
 ): Promise<ScannedFile[]> {
   const normRoot = root.replace(/\\/g, '/').replace(/\/+$/, '')
   const seen = new Set<string>()
@@ -82,7 +83,37 @@ export async function scanVault(
     }
   }
 
-  await walk(normRoot)
+  if (listDirRecursive) {
+    // Fast path: one recursive listing, no per-directory IPC round-trips.
+    let entries: readonly VaultEntry[]
+    try {
+      entries = await listDirRecursive(normRoot)
+    } catch {
+      entries = []
+    }
+    for (const entry of entries) {
+      const path = entry.path.replace(/\\\\/g, '/')
+      if (seen.has(path)) continue
+      seen.add(path)
+      if (entry.isDirectory) continue
+      const segs = path.split(/[\\\\/]+/).filter(Boolean)
+      const rootSegs = normRoot.split('/').filter(Boolean)
+      if (rootSegs.length && !rootSegs.every((s, i) => segs[i] === s)) continue
+      if (!isVaultDocument(path)) continue
+      const relative = path.slice(normRoot.length + 1)
+      if (!relative) continue
+      // Noise check
+      let noisy = false
+      for (const seg of segs) {
+        const NOISE = new Set(['.git', '.obsidian', '.valence', 'node_modules', '.trash'])
+        if (NOISE.has(seg) || seg.startsWith('.')) { noisy = true; break }
+      }
+      if (noisy) continue
+      out.push({ path, relative })
+    }
+  } else {
+    await walk(normRoot)
+  }
   // Stable order: by relative path, which is how a user reads a file list.
   out.sort((a, b) => a.relative.localeCompare(b.relative))
   return out

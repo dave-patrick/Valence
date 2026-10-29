@@ -388,6 +388,20 @@
   border-top: 1px solid var(--rule);
   order: 1;
 }
+.valence-tabs[data-position='left'], .valence-tabs[data-position='right'] {
+  width: 220px;
+  height: 100%;
+  border-bottom: none;
+  flex-direction: column;
+}
+.valence-tabs[data-position='left'] { border-left: 1px solid var(--rule); }
+.valence-tabs[data-position='right'] { border-right: 1px solid var(--rule); }
+.valence-tabs[data-position='left'] .valence-tabs__strip,
+.valence-tabs[data-position='right'] .valence-tabs__strip {
+  flex-direction: column;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
 
 .valence-tabs__strip {
   display: flex;

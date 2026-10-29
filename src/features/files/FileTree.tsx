@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useState } from 'react'
 import { getPlatform } from '@platform'
 import {
   buildTree,
@@ -44,11 +44,14 @@ export function FileTree({ root, activePath, onOpen, onWorkspaceOpen, onError }:
       // On the web fallback, listDir already returns everything, and scanVault's against-
       // the-root filter keeps only matching entries.
       const { scanVault } = await import('../workspace/scan')
-      const files = await scanVault(root, (dir) =>
-        getPlatform().fs.listDir(dir).then((xs) =>
-          xs.map((e) => ({ path: e.path, isDirectory: e.isDirectory })),
-        ),
-      )
+      const platform = getPlatform()
+     const files = await scanVault(
+       root,
+       (dir) => platform.fs.listDir(dir).then((xs) => xs.map((e) => ({ path: e.path, isDirectory: e.isDirectory }))),
+       platform.fs.listDirRecursive
+         ? (dir) => platform.fs.listDirRecursive!(dir).then((xs) => xs.map((e) => ({ path: e.path, isDirectory: e.isDirectory })))
+         : undefined,
+     )
       // buildTree wants directory entries, but scanVault already collapsed those into paths.
       // Re-derive them: parent dirs of every file become implicit structure.
       const entries = files.map((f) => ({ path: f.path, isDirectory: false }))
@@ -148,7 +151,7 @@ export function FileTree({ root, activePath, onOpen, onWorkspaceOpen, onError }:
   )
 }
 
-function Row({
+const Row = memo(function Row({
   node,
   depth,
   expanded,
@@ -216,7 +219,7 @@ function Row({
   }
 
   const active = normalise(node.path) === normalise(activePath ?? '')
-  const childDocs = countDocuments(node)
+  const childDocs = node.docCount
 
   return (
     <li role="treeitem" aria-selected={active}>
@@ -240,7 +243,7 @@ function Row({
       </button>
     </li>
   )
-}
+})
 
 function collectDirs(nodes: readonly TreeNode[]): string[] {
   const out: string[] = []
@@ -254,9 +257,4 @@ function collectDirs(nodes: readonly TreeNode[]): string[] {
   }
   walk(nodes)
   return out
-}
-
-function countDocuments(node: TreeNode): number {
-  if (node.kind === 'file') return 1
-  return node.children.reduce((n, c) => n + countDocuments(c), 0)
 }

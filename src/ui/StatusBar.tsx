@@ -2,6 +2,7 @@ import type { ViewMode } from '@/App'
 import type { DocumentStats } from '@features/stats/stats'
 import type { UpdateState } from './TabBar'
 import { formatCount } from '@features/stats/stats'
+import { buildId } from '../../package.json'
 
 interface StatusBarProps {
   path: string | null
@@ -10,6 +11,7 @@ interface StatusBarProps {
   tabCount: number
   dirtyCount: number
   view: ViewMode
+  textDocument?: boolean
   onViewChange: (v: ViewMode) => void
   appVersion: string
   updateState: UpdateState | null
@@ -28,6 +30,7 @@ export function StatusBar({
   tabCount,
   dirtyCount,
   view,
+  textDocument = false,
   onViewChange,
   appVersion,
   updateState,
@@ -52,7 +55,7 @@ export function StatusBar({
       </span>
 
       <div className="ml-auto flex items-center gap-1" role="group" aria-label="View mode">
-        {MODES.map((m) => (
+        {textDocument ? <span title="Plain text editing">Text</span> : MODES.map((m) => (
           <button
             key={m.id}
             onClick={() => onViewChange(m.id)}
@@ -69,6 +72,9 @@ export function StatusBar({
         ))}
         <span className="ml-2 tnum" style={{ color: 'var(--ink-3)' }} title={`Valence ${appVersion}`}>
           v{appVersion}
+        </span>
+        <span className="tnum" style={{ color: 'var(--ink-3)' }} title={`Build ${buildId}`}>
+          Build {buildId}
         </span>
         {updateState?.available && (
           <span

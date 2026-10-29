@@ -12,6 +12,8 @@ interface SidebarProps {
   width: number
   kind: Exclude<PanelId, null>
   headings: OutlineEntry[]
+  onNavigate: (heading: OutlineEntry) => void
+  textDocument?: boolean
   source: string
   /** Path of the active document; the tree highlights it. */
   activePath: string | null
@@ -30,6 +32,8 @@ export function Sidebar({
   width,
   kind,
   headings,
+  onNavigate,
+  textDocument = false,
   source,
   activePath,
   backlinks,
@@ -68,7 +72,7 @@ export function Sidebar({
       <div className="min-h-0 flex-1 overflow-y-auto">
         {kind === 'outline' && (
           <div className="flex flex-col gap-2">
-            <OutlineList headings={headings} />
+            <OutlineList headings={headings} onNavigate={onNavigate} textDocument={textDocument} />
             <div className="border-t border-[var(--rule)] pt-2">
               <p className="px-3 pb-1 text-[10.5px] font-semibold uppercase tracking-[0.08em]" style={{ color: 'var(--text-faint)' }}>
                 Backlinks
@@ -108,9 +112,13 @@ export function Sidebar({
   )
 }
 
-function OutlineList({ headings }: { headings: OutlineEntry[] }) {
+function OutlineList({ headings, onNavigate, textDocument }: {
+  headings: OutlineEntry[]
+  onNavigate: (heading: OutlineEntry) => void
+  textDocument: boolean
+}) {
   if (!headings.length) {
-    return <Empty>No headings yet. Start a line with # to add one.</Empty>
+    return <Empty>{textDocument ? 'The outline is available for Markdown documents.' : 'No headings yet. Start a line with # to add one.'}</Empty>
   }
   return (
     <nav className="py-2" aria-label="Document outline">
@@ -120,9 +128,7 @@ function OutlineList({ headings }: { headings: OutlineEntry[] }) {
           href={`#${h.id}`}
           onClick={(e) => {
             e.preventDefault()
-            document
-              .getElementById(h.id)
-              ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+            onNavigate(h)
           }}
           className="block truncate py-[5px] pr-3 text-[13px] leading-snug transition-colors duration-100 hover:bg-[var(--surface-2)]"
           style={{

@@ -13,6 +13,7 @@ interface ExportDialogProps {
   markdown: string
   /** Fully rendered HTML, used for the print pipeline so CSS and images survive. */
   html: string
+  textDocument?: boolean
   sourcePath: string | null
   title: string | null
   onClose: () => void
@@ -31,6 +32,7 @@ interface ExportDialogProps {
 export function ExportDialog({
   markdown,
   html,
+  textDocument = false,
   sourcePath,
   title,
   onClose,
@@ -89,12 +91,12 @@ export function ExportDialog({
             break
           case 'pandoc': {
             const target = format.id
-            const converted = await platform.export.viaPandoc(markdown, 'markdown', target)
+            const converted = await platform.export.viaPandoc(textDocument ? html : markdown, textDocument ? 'html' : 'markdown', target)
             await platform.fs.write(name, converted)
             break
           }
           case 'native-text':
-            await platform.fs.write(name, markdown)
+            await platform.fs.write(name, format.id === 'html' ? html : markdown)
             break
         }
         onNotice(`Exported ${name}`)
@@ -105,7 +107,7 @@ export function ExportDialog({
         setBusy(false)
       }
     },
-    [markdown, html, sourcePath, title, hasPandoc, onClose, onNotice, onError],
+    [markdown, html, textDocument, sourcePath, title, hasPandoc, onClose, onNotice, onError],
   )
 
   const planFor = (f: ExportFormat): ExportPlan =>

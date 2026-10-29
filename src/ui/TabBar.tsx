@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { buildId } from '../../package.json'
 import type { DocumentState, Session } from '@core/session'
 import { isDirty, tabLabel } from '@core/session'
 import type { TabBarPosition } from '@core/settings'
@@ -411,6 +412,9 @@ function SettingsFields({
        <h3>Updates</h3>
        <Field label="Current version" hint="Valence checks GitHub releases for new versions on launch">
          <span className="valence-version">{appVersion}</span>
+       </Field>
+       <Field label="Build" hint="Identifies this source and build set">
+         <span className="valence-version">{buildId}</span>
        </Field>
        <Field label="Check for updates" hint="Manual check against GitHub releases">
          <button className="valence-btn" onClick={onCheckUpdates}>

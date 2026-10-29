@@ -10,6 +10,7 @@
  */
 
 import type { ExportFormat, FileStat, MenuItemSpec, OpenFileResult, Platform } from './types'
+import { DOCUMENT_EXTENSIONS } from '@shared/fileTypes'
 
 const FILES_KEY = 'valence.files'
 const ROOT_KEY = 'valence.root'
@@ -82,6 +83,12 @@ export function createWebPlatform(): Platform {
       },
       async listDir() {
         return [...store.keys()].map((p): FileStat => ({ path: p, size: 0, mtimeMs: 0, isDirectory: false }))
+      },
+      async listDirRecursive(root: string) {
+        const norm = root.replace(/\\/g, '/').replace(/\/+$/, '')
+        return [...store.keys()]
+          .filter((p) => p.replace(/\\/g, '/').startsWith(norm + '/'))
+          .map((p): FileStat => ({ path: p, size: 0, mtimeMs: 0, isDirectory: false }))
       },
       async watch() {
         const fn = () => touch()
@@ -228,7 +235,7 @@ async function pickFromDisk(store: Map<string, string>): Promise<OpenFileResult>
     const handles = await picker({
       multiple: true,
       types: [
-        { description: 'Markdown', accept: { 'text/markdown': ['.md', '.markdown', '.mdown'] } },
+        { description: 'Text documents', accept: { 'text/plain': DOCUMENT_EXTENSIONS.map((ext) => `.${ext}`) } },
       ],
     })
 
