@@ -23,8 +23,7 @@ export function Inspector({ stats, headings, goal = 0 }: InspectorProps) {
   return (
     <aside
       aria-label="Document statistics"
-      className="hidden shrink-0 flex-col overflow-y-auto px-4 py-5 xl:flex"
-      style={{ width: 'var(--inspector-w)', borderLeft: '1px solid var(--rule)' }}
+      className="flex min-w-0 flex-1 flex-col overflow-y-auto px-4 py-5"
     >
       {goal > 0 && <Goal words={stats.words} goal={goal} />}
 

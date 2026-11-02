@@ -389,7 +389,9 @@
   order: 1;
 }
 .valence-tabs[data-position='left'], .valence-tabs[data-position='right'] {
-  width: 220px;
+  width: 100%;
+  min-width: 0;
+  flex-shrink: 0;
   height: 100%;
   border-bottom: none;
   flex-direction: column;
@@ -910,7 +912,10 @@
   font-family: var(--font-mono);
   font-size: 14px;
   line-height: 1.62;
-  max-width: 46rem;
+  flex: 1;
+  min-width: 0;
+  max-width: none;
+  margin: 0;
 }
 .editor-surface[data-view='source'] h1,
 .editor-surface[data-view='source'] h2,
@@ -930,7 +935,7 @@
      so when the read pane's 760px measure exceeded half the window the track grew to fit it
      and pushed the whole page sideways — `min-width: 0` on the child cannot undo a floor
      set by the track itself. */
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) 6px minmax(0, 1fr);
   min-height: 0;
   flex: 1;
 }
@@ -938,9 +943,7 @@
   min-width: 0;
   overflow-y: auto;
 }
-.split-pane > :first-child {
-  border-right: 1px solid var(--rule);
-}
+
 
 .read-surface {
   font-family: var(--font-body);
@@ -1154,3 +1157,14 @@
   cursor: pointer;
   padding: 0;
 }
+/* Pane boundaries share one drag target and keyboard focus treatment. */
+.valence-resizable-pane { display: flex; flex-shrink: 0; min-height: 0; }
+.valence-resizable-pane__content { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; overflow: hidden; }
+.valence-resize-divider { position: relative; width: 6px; flex-shrink: 0; align-self: stretch; cursor: col-resize; touch-action: none; user-select: none; outline: none; }
+.valence-resize-divider::after { content: ''; position: absolute; top: 0; bottom: 0; left: 2px; width: 1px; background: var(--rule); }
+.valence-resize-divider:hover::after, .valence-resize-divider:focus-visible::after { left: 1px; width: 3px; background: var(--accent); }
+.valence-resize-divider:focus-visible { outline: 1px solid var(--accent); outline-offset: -1px; }
+.valence-inspector-pane { display: none; }
+@media (min-width: 1280px) { .valence-inspector-pane { display: flex; } }
+.valence-tabs[data-position='left'] .valence-tab,
+.valence-tabs[data-position='right'] .valence-tab { max-width: none; }

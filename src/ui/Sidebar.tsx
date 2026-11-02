@@ -9,7 +9,6 @@ import { Backlinks } from '@features/wiki/Backlinks'
 import { dirname } from '@shared/path'
 
 interface SidebarProps {
-  width: number
   kind: Exclude<PanelId, null>
   headings: OutlineEntry[]
   onNavigate: (heading: OutlineEntry) => void
@@ -23,13 +22,9 @@ interface SidebarProps {
   onWorkspaceOpen: () => void
   onBacklinkOpen: (path: string, line: number) => void
   onClose: () => void
-  onResizeStart: (e: React.PointerEvent) => void
-  onResizeMove: (e: React.PointerEvent) => void
-  onResizeEnd: (e: React.PointerEvent) => void
 }
 
 export function Sidebar({
-  width,
   kind,
   headings,
   onNavigate,
@@ -42,14 +37,11 @@ export function Sidebar({
   onWorkspaceOpen,
   onBacklinkOpen,
   onClose,
-  onResizeStart,
-  onResizeMove,
-  onResizeEnd,
 }: SidebarProps) {
   return (
     <aside
-      className="flex shrink-0 flex-col"
-      style={{ width, background: 'var(--surface)', minWidth: 200, maxWidth: 420 }}
+      className="flex min-w-0 flex-1 flex-col"
+      style={{ background: 'var(--surface)' }}
     >
       <header
         className="flex h-11 shrink-0 items-center justify-between px-4"
@@ -98,16 +90,6 @@ export function Sidebar({
         )}
       </div>
 
-      <div
-        role="separator"
-        aria-orientation="vertical"
-        aria-label="Resize panel"
-        className="h-1.5 w-full shrink-0 cursor-col-resize"
-        style={{ background: 'transparent' }}
-        onPointerDown={onResizeStart}
-        onPointerMove={onResizeMove}
-        onPointerUp={onResizeEnd}
-      />
     </aside>
   )
 }

@@ -22,3 +22,4 @@ Valence - a local-first Markdown editor. Typora seamless reading, MarkText edito
 - Use Graft for code context when available, following the global and project Graft guidance.
 - Keep this context accurate as project architecture and conventions are established.
 - Herald compiler output replaces vendor files. Preserve and merge existing guidance before compiling.
+- Pane resizing uses the controlled ResizeDivider/ResizablePane UI components. Widths live in App state for the session; pointer movement uses deltas and side-aware direction. Keep inspector visibility and its divider together.

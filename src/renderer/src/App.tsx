@@ -3,6 +3,7 @@ import { EditorContent, useEditor } from '@tiptap/react'
 import { createExtensions } from '@core/editor/extensions'
 import { LINE_NUMBERS_TOGGLE } from '@core/editor/lineNumbers'
 import { dirname, joinPath } from '@shared/path'
+import { ResizeDivider, ResizablePane } from '@ui/ResizeDivider'
 import { Rail } from '@ui/Rail'
 import { Sidebar } from '@ui/Sidebar'
 import { StatusBar } from '@ui/StatusBar'
@@ -185,6 +186,10 @@ export function App() {
   const [view, setView] = useState<ViewMode>('hybrid')
   const [panel, setPanel] = useState<PanelId>('outline')
   const [sidebarWidth, setSidebarWidth] = useState(268)
+  const [tabsWidth, setTabsWidth] = useState(220)
+  const [inspectorWidth, setInspectorWidth] = useState(176)
+  const [splitPercent, setSplitPercent] = useState(50)
+  const splitRef = useRef<HTMLDivElement>(null)
   const [readHtml, setReadHtml] = useState('')
   const [readError, setReadError] = useState<string | null>(null)
   const [exportOpen, setExportOpen] = useState(false)
@@ -1171,22 +1176,6 @@ const saveAll = useCallback(async () => {
     return () => clearTimeout(t)
   }, [settings, session])
 
-  /* ── Resize ────────────────────────────────────────────────── */
-
-  const dragging = useRef(false)
-  const onResizeStart = useCallback((e: React.PointerEvent) => {
-    dragging.current = true
-    e.currentTarget.setPointerCapture(e.pointerId)
-  }, [])
-  const onResizeMove = useCallback((e: React.PointerEvent) => {
-    if (!dragging.current) return
-    setSidebarWidth(Math.min(420, Math.max(200, e.clientX)))
-  }, [])
-  const onResizeEnd = useCallback((e: React.PointerEvent) => {
-    dragging.current = false
-    e.currentTarget.releasePointerCapture(e.pointerId)
-  }, [])
-
   const tabBar = settings?.tabBar ?? 'top'
 
   return (
@@ -1279,26 +1268,27 @@ const saveAll = useCallback(async () => {
         )}
       </div>
 
-      <div className="flex min-h-0 flex-1">
+      <div className="flex min-h-0 flex-1 overflow-x-auto">
         <Rail
           panel={panel}
           onSelect={setPanel}
           onSettings={() => setSettingsOpen(true)}
         />
-        {tabBar === 'left' && (
-          <TabBar
+        {tabBar === 'left' && session.documents.length > 0 && (
+          <ResizablePane width={tabsWidth} min={140} max={420} onResize={setTabsWidth} edge="right" label="Resize document tabs">
+<TabBar
             session={session}
             position="left"
             onSelect={(id) => setSession((s) => setActiveDoc(s, id))}
             onClose={(id) => void closeTab(id)}
             onSetPosition={(pos) => patchSettings({ tabBar: pos })}
           />
+          </ResizablePane>
         )}
 
         {panel && (
-          <>
+          <ResizablePane width={sidebarWidth} min={160} max={520} onResize={setSidebarWidth} edge="right" label="Resize navigation panel">
             <Sidebar
-              width={sidebarWidth}
               kind={panel}
               headings={headings}
               onNavigate={navigateHeading}
@@ -1339,27 +1329,15 @@ const saveAll = useCallback(async () => {
                 })()
               }}
               onClose={() => setPanel(null)}
-              onResizeStart={onResizeStart}
-              onResizeMove={onResizeMove}
-              onResizeEnd={onResizeEnd}
             />
-            <div
-              role="separator"
-              aria-orientation="vertical"
-              className="w-px shrink-0 cursor-col-resize"
-              style={{ background: 'var(--rule)' }}
-              onPointerDown={onResizeStart}
-              onPointerMove={onResizeMove}
-              onPointerUp={onResizeEnd}
-            />
-          </>
+          </ResizablePane>
         )}
 
-        <main className="relative flex min-w-0 flex-1 flex-col">
+        <main className="relative flex flex-1 flex-col" style={{ minWidth: 'min-content' }}>
           <div className="flex min-h-0 flex-1">
-            <div className="flex min-w-0 flex-1 flex-col">
+            <div className="flex min-w-[240px] flex-1 flex-col">
               {effectiveView === 'split' ? (
-                <div className="split-pane">
+                <div className="split-pane" ref={splitRef} style={{ gridTemplateColumns: `minmax(0, calc((100% - 6px) * ${splitPercent / 100})) 6px minmax(0, 1fr)` }}>
                   <EditorPane
                     key={doc?.id}
                     sourceRef={sourceRef}
@@ -1374,13 +1352,16 @@ const saveAll = useCallback(async () => {
                       if (current) setSession((s) => updateDoc(s, current.id, { source: text }))
                     }}
                   />
+                  <ResizeDivider label="Resize editor and preview" value={splitPercent} min={20} max={80} step={2} onChange={setSplitPercent} unitsPerPixel={() => 100 / Math.max(1, (splitRef.current?.clientWidth ?? 6) - 6)} />
                   {/* Content comes from our own render pipeline over the user's own file. */}
+                  <div className="min-w-0 overflow-y-auto">
                   <div className="read-surface" dangerouslySetInnerHTML={{ __html: readHtml }} />
                   {readError && (
                     <p className="read-error" role="status">
                       The preview could not be rendered: {readError}
                     </p>
                   )}
+                  </div>
                 </div>
               ) : (
                 <EditorPane
@@ -1401,11 +1382,13 @@ const saveAll = useCallback(async () => {
             </div>
 
             {(settings?.showInspector ?? true) && (
+              <ResizablePane width={inspectorWidth} min={140} max={360} onResize={setInspectorWidth} edge="left" label="Resize document statistics" className="valence-inspector-pane">
               <Inspector
                 stats={stats}
                 headings={headings.length}
                 goal={settings?.dailyWordGoal ?? 0}
               />
+              </ResizablePane>
             )}
             <StrataGutter headings={headings} active={activeHeading} onNavigate={navigateHeading} />
           </div>
@@ -1421,14 +1404,16 @@ const saveAll = useCallback(async () => {
 
           <TableToolbar editor={editor} />
         </main>
-        {tabBar === 'right' && (
-          <TabBar
+        {tabBar === 'right' && session.documents.length > 0 && (
+          <ResizablePane width={tabsWidth} min={140} max={420} onResize={setTabsWidth} edge="left" label="Resize document tabs">
+<TabBar
             session={session}
             position="right"
             onSelect={(id) => setSession((s) => setActiveDoc(s, id))}
             onClose={(id) => void closeTab(id)}
             onSetPosition={(pos) => patchSettings({ tabBar: pos })}
           />
+          </ResizablePane>
         )}
       </div>
 
@@ -1654,7 +1639,7 @@ function EditorPane({
 
   if (view === 'source') {
     return (
-      <div className="flex min-h-0 flex-1 overflow-y-auto">
+      <div className="flex min-h-0 min-w-0 flex-1 overflow-y-auto">
         <SourceGutter
           text={source}
           textareaRef={ref}

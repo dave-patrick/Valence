@@ -225,3 +225,15 @@ describe('file menu actions', () => {
     expect(document.querySelectorAll('[role="tab"]')).toHaveLength(tabs)
   })
 })
+
+it('removes the side tab pane and divider when the final document closes', async () => {
+  await mount({ '/notes/only.txt': 'Saved text' })
+  click(document.querySelector('[aria-label="Settings"]'))
+  await until(() => button('Left'))
+  click(button('Left'))
+  click(document.querySelector('[aria-label="Close settings"]'))
+  await until(() => document.querySelector('[aria-label="Resize document tabs"]'))
+  click(document.querySelector('[aria-label="Close only.txt"]'))
+  await until(() => !document.querySelector('[role="tablist"]'))
+  expect(document.querySelector('[aria-label="Resize document tabs"]')).toBeNull()
+})

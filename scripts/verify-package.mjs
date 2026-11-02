@@ -173,7 +173,14 @@ await send('Page.enable')
 await send('Page.reload', { ignoreCache: true })
 
 // Let React mount, the editor build, and the read pane hydrate.
-await sleep(6000)
+for (let attempt = 0; attempt < 60; attempt++) {
+  const mounted = await send('Runtime.evaluate', {
+    expression: '!!document.querySelector(".ProseMirror, textarea[data-view=source]")', returnByValue: true,
+  })
+  if (mounted.result?.result?.value === true) break
+  await sleep(1000)
+}
+await sleep(500)
 
 async function evaluate(expression) {
   const res = await send('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true })
@@ -241,6 +248,70 @@ const checks = {
     return bad.length ? 'failed: ' + bad.join(', ') : true
   })()`),
 }
+
+checks['source editor fills available width'] = await evaluate(`(async () => {
+  const button = (label) => [...document.querySelectorAll('button')].find(b => b.textContent.trim() === label)
+  button('Source')?.click()
+  await new Promise(r => setTimeout(r, 150))
+  const text = document.querySelector('textarea[data-view="source"]')
+  if (!text) return 'source editor missing'
+  const bounds = text.getBoundingClientRect()
+  const parent = text.parentElement.getBoundingClientRect()
+  const result = Math.abs(parent.right - bounds.right) <= 2 && bounds.width > parent.width / 2
+    ? true : 'unused editor width: ' + Math.round(parent.right - bounds.right) + 'px'
+  button('Hybrid')?.click()
+  return result
+})()`)
+
+// Exercise real Chromium pointer events, not synthetic component events.
+async function dragDivider(label, delta) {
+  const selector = '[role="separator"][aria-label="' + label + '"]'
+  const before = await evaluate('(() => { const el = document.querySelector(' + JSON.stringify(selector) + '); if (!el) return null; const r = el.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2, value: Number(el.getAttribute("aria-valuenow")) } })()')
+  if (!before) return { error: 'missing ' + label }
+  await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: before.x, y: before.y })
+  await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: before.x, y: before.y, button: 'left', buttons: 1, clickCount: 1 })
+  await sleep(100)
+  await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: before.x + delta / 2, y: before.y, button: 'left', buttons: 1 })
+  await sleep(50)
+  await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: before.x + delta, y: before.y, button: 'left', buttons: 1 })
+  await sleep(100)
+  await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: before.x + delta, y: before.y, button: 'left', buttons: 0, clickCount: 1 })
+  const after = await evaluate('Number(document.querySelector(' + JSON.stringify(selector) + ').getAttribute("aria-valuenow"))')
+  return { before: before.value, after }
+}
+await send('Emulation.setDeviceMetricsOverride', { width: 1400, height: 840, deviceScaleFactor: 1, mobile: false })
+await sleep(200)
+const sidebarDrag = await dragDivider('Resize navigation panel', 24)
+checks['navigation divider follows drag without jumping'] = sidebarDrag.after === sidebarDrag.before + 24
+const inspectorDrag = await dragDivider('Resize document statistics', -20)
+checks['statistics divider resizes in the opposite direction'] = inspectorDrag.after === inspectorDrag.before + 20
+for (const position of ['Left', 'Right']) {
+  await evaluate('document.querySelector("[aria-label=Settings]").click()')
+  await sleep(100)
+  await evaluate('([...document.querySelectorAll(".valence-settings button")].find(b => b.textContent.trim() === ' + JSON.stringify(position) + ')).click()')
+  await sleep(100)
+  await evaluate('document.querySelector(' + JSON.stringify('[aria-label="Close settings"]') + ').click()')
+  await sleep(100)
+  const delta = position === 'Left' ? 20 : -20
+  const tabsDrag = await dragDivider('Resize document tabs', delta)
+  checks[position.toLowerCase() + ' tab divider follows drag'] = tabsDrag.after === tabsDrag.before + 20
+}
+// Return tabs to top so Split has enough width for both panes.
+await evaluate('document.querySelector("[aria-label=Settings]").click()')
+await sleep(100)
+await evaluate('[...document.querySelectorAll(".valence-settings button")].find(b => b.textContent.trim() === "Top").click()')
+  await evaluate('document.querySelector(' + JSON.stringify('[aria-label="Close settings"]') + ').click()')
+await sleep(100)
+await evaluate('[...document.querySelectorAll("button")].find(b => b.textContent.trim() === "Split").click()')
+await sleep(200)
+const splitDrag = await dragDivider('Resize editor and preview', 40)
+checks['split divider follows drag'] = splitDrag.after > splitDrag.before
+const splitBounds = await dragDivider('Resize editor and preview', 2000)
+checks['split divider respects maximum'] = splitBounds.after === 80
+checks['split preview stays in its track'] = await evaluate('(() => { const el = document.querySelector(".split-pane"); const r = el.getBoundingClientRect(); return el.children.length === 3 && Math.abs(el.lastElementChild.getBoundingClientRect().right - r.right) < 2 })()')
+await send('Emulation.setDeviceMetricsOverride', { width: 700, height: 840, deviceScaleFactor: 1, mobile: false })
+await sleep(100)
+checks['statistics divider hides with inspector'] = await evaluate('getComputedStyle(document.querySelector(".valence-inspector-pane")).display === "none"')
 
 console.log(`\n  target: ${page.url}\n`)
 for (const [name, value] of Object.entries(checks)) {
