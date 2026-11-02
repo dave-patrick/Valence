@@ -88,7 +88,7 @@ export function TabBar({ session, position, onSelect, onClose, onSetPosition }: 
               onClick={() => { onSetPosition(pos); setMenu(null) }}
               className="flex w-full items-center gap-3 px-4 py-2 text-sm text-[var(--ink)] hover:bg-[var(--surface-2)] hover:text-[var(--accent)]"
             >
-              <span>{pos === 'top' ? 'Top' : pos === 'bottom' ? 'Bottom' : 'Hidden'}</span>
+              <span>{pos.charAt(0).toUpperCase() + pos.slice(1)}</span>
             </button>
           ))}
         </div>

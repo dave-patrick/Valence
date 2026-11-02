@@ -37,22 +37,7 @@ export function Rail({ panel, onSelect, onSettings }: RailProps) {
       className="flex shrink-0 flex-col items-center gap-1 py-3"
       style={{ width: 'var(--rail)', background: 'var(--surface)', borderRight: '1px solid var(--rule)' }}
     >
-      {/* Wordmark. A letter, not the shell glyph: at 28px a detailed mark turns to mush,
-          and the shell already carries the identity down the gutter on every screen. */}
-      <div
-        className="mb-3 grid h-7 w-7 place-items-center rounded-[7px] text-[14px] leading-none"
-        style={{
-          background: 'var(--accent)',
-          color: 'var(--accent-ink)',
-          fontFamily: 'var(--font-display)',
-          fontWeight: 700,
-        }}
-        aria-hidden
-      >
-        V
-      </div>
-
-      {ITEMS.map((item) => {
+{ITEMS.map((item) => {
         const active = panel === item.id
         return (
           <button

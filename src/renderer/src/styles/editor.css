@@ -381,7 +381,7 @@
   width: 100%;
   background: var(--surface);
   border-bottom: 1px solid var(--rule);
-  order: -1;
+
 }
 .valence-tabs[data-position='bottom'] {
   border-bottom: none;

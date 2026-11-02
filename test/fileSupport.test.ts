@@ -198,3 +198,30 @@ describe('outline extraction and schema mapping', () => {
     }
   })
 })
+
+describe('file menu actions', () => {
+  it('opens and saves through the menu and permits cancelling Open', async () => {
+    const platform = await mount({ '/notes/first.txt': 'First' })
+    await platform.fs.write('/notes/second.txt', 'Second')
+    const picker = vi.spyOn(platform.dialog, 'openFile').mockResolvedValue({ paths: ['/notes/second.txt'] })
+    const toolbar = document.querySelector('[aria-label="File actions"]')!
+    click(toolbar.querySelector('[aria-label="Menu"]'))
+    await until(() => [...document.querySelectorAll('.valence-appmenu button')].find(b => b.querySelector('span')?.textContent === 'Open file…') ?? null)
+    click([...document.querySelectorAll('.valence-appmenu button')].find(b => b.querySelector('span')?.textContent === 'Open file…') ?? null)
+    await until(() => document.querySelector('textarea')?.value === 'Second')
+    edit(document.querySelector('textarea')!, 'Updated')
+    await until(() => document.body.textContent?.includes('Unsaved'))
+    click(toolbar.querySelector('[aria-label="Menu"]'))
+    await until(() => document.querySelector('.valence-appmenu'))
+    click([...document.querySelectorAll('.valence-appmenu button')].find(b => b.querySelector('span')?.textContent === 'Save') ?? null)
+    await until(() => document.body.textContent?.includes('All changes saved'))
+    expect(await platform.fs.read('/notes/second.txt')).toBe('Updated')
+    const tabs = document.querySelectorAll('[role="tab"]').length
+    picker.mockResolvedValue({ paths: [] })
+    click(toolbar.querySelector('[aria-label="Menu"]'))
+    await until(() => [...document.querySelectorAll('.valence-appmenu button')].find(b => b.querySelector('span')?.textContent === 'Open file…') ?? null)
+    click([...document.querySelectorAll('.valence-appmenu button')].find(b => b.querySelector('span')?.textContent === 'Open file…') ?? null)
+    await until(() => picker.mock.calls.length === 2)
+    expect(document.querySelectorAll('[role="tab"]')).toHaveLength(tabs)
+  })
+})

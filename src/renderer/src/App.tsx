@@ -804,7 +804,7 @@ useEffect(() => {
           return next
         })
       } catch {
-        // Unreadable file: leave the session alone rather than opening an empty tab.
+        notify(`Could not open ${p}. Check that the file is readable and try again.`, 'error')
       }
     }
     if (result.folder && settings) {
@@ -1200,25 +1200,19 @@ const saveAll = useCallback(async () => {
           setBarMenu({ x: e.clientX, y: e.clientY })
         }}
       >
+        <div role="toolbar" aria-label="File actions" className="flex shrink-0 items-center gap-1">
         <button
           ref={appMenuAnchor}
           onClick={() => setAppMenuOpen((o) => !o)}
           className="flex h-8 w-8 items-center justify-center rounded-[6px] hover:bg-[var(--surface-2)]"
           aria-label="Menu"
+          aria-haspopup="true"
+          aria-expanded={appMenuOpen}
           title="Menu"
         >
-          <svg
-            width="18"
-            height="12"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-          >
-            <path d="M3 6h18M3 12h18M3 18h18" />
-          </svg>
+          <span aria-hidden="true" className="grid h-7 w-7 place-items-center rounded-[7px] text-[14px] leading-none" style={{ background: 'var(--accent)', color: 'var(--accent-ink)', fontFamily: 'var(--font-display)', fontWeight: 700 }}>V</span>
         </button>
+        </div>
         {tabBar === 'top' && (
           <div className="flex-1 min-w-0">
             <TabBar
