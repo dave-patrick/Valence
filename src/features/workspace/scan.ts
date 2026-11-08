@@ -92,7 +92,7 @@ export async function scanVault(
       entries = []
     }
     for (const entry of entries) {
-      const path = entry.path.replace(/\\\\/g, '/')
+      const path = entry.path.replace(/\\/g, '/')
       if (seen.has(path)) continue
       seen.add(path)
       if (entry.isDirectory) continue

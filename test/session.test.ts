@@ -323,3 +323,16 @@ describe('session restore', () => {
     expect(r.restored).toEqual(['/notes/index.md'])
   })
 })
+import { changedOnDisk } from '../src/core/session'
+
+describe('changedOnDisk', () => {
+  const doc = { saved: 'as opened', source: 'as edited' }
+  it('is false for what Valence last wrote, what it is about to write, or no file', () => {
+    expect(changedOnDisk(doc, 'as opened')).toBe(false)
+    expect(changedOnDisk(doc, 'as edited')).toBe(false)
+    expect(changedOnDisk(doc, null)).toBe(false)
+  })
+  it('is true when something else changed the file', () => {
+    expect(changedOnDisk(doc, 'edited elsewhere')).toBe(true)
+  })
+})

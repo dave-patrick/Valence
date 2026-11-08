@@ -57,6 +57,15 @@ export function fromPath(path: string, source: string): DocumentState {
   }
 }
 
+/**
+ * Whether the file on disk was changed by something other than Valence since it was opened or
+ * last saved: it is neither what Valence last wrote (`saved`) nor what it is about to write.
+ * `disk` is null when the file doesn't exist (yet), which is never a conflict.
+ */
+export function changedOnDisk(doc: Pick<DocumentState, 'saved' | 'source'>, disk: string | null): boolean {
+  return disk !== null && disk !== doc.saved && disk !== doc.source
+}
+
 export function isDirty(doc: DocumentState): boolean {
   return doc.source !== doc.saved
 }

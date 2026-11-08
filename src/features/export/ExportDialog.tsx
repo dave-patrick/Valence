@@ -91,8 +91,7 @@ export function ExportDialog({
             break
           case 'pandoc': {
             const target = format.id
-            const converted = await platform.export.viaPandoc(textDocument ? html : markdown, textDocument ? 'html' : 'markdown', target)
-            await platform.fs.write(name, converted)
+            await platform.export.viaPandoc(textDocument ? html : markdown, textDocument ? 'html' : 'markdown', target, name)
             break
           }
           case 'native-text':

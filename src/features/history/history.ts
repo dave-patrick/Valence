@@ -7,7 +7,8 @@
  * accumulates meaning depends on every version before it still being present; one missing file
  * corrupts the whole chain.
  *
- * Snapshots live beside the document under `.valence/<filename>/history.json`. Writing them
+ * Snapshots live beside the document under `.valence/<filename>.history.json`, extension
+ * included -- `notes.md` and `notes.txt` once shared `notes.history.json` and mixed their versions. Writing them
  * there means a sync tool (git, Dropbox, Syncthing) moves them with the note, and deleting a
  * note leaves its history with nothing pointing at it — the orphan is harmless and cheap.
  */
@@ -22,6 +23,17 @@ export interface Snapshot {
 }
 
 export function snapshotPath(docPath: string): string {
+  const dir = dirnameOf(docPath)
+  const name = basenameOf(docPath)
+  return dir ? `${dir}/.valence/${name}.history.json` : `.valence/${name}.history.json`
+}
+
+/**
+ * Where versions were kept before 0.2.4 (extension dropped). Read only for Markdown files, which
+ * were the usual owner of that name, and only when the new file doesn't exist yet.
+ */
+export function legacySnapshotPath(docPath: string): string | null {
+  if (!/\.(md|markdown|mdown|mkd|mdx)$/i.test(docPath)) return null
   const dir = dirnameOf(docPath)
   const base = basenameOf(docPath).replace(/\.[^.]+$/, '')
   return dir ? `${dir}/.valence/${base}.history.json` : `.valence/${base}.history.json`
@@ -44,7 +56,10 @@ function basenameOf(p: string): string {
 export async function loadSnapshots(docPath: string): Promise<Snapshot[]> {
   const platform = getPlatform()
   try {
-    const raw = await platform.fs.read(snapshotPath(docPath))
+    const current = snapshotPath(docPath)
+    const legacy = legacySnapshotPath(docPath)
+    const path = legacy && !(await platform.fs.exists(current)) && (await platform.fs.exists(legacy)) ? legacy : current
+    const raw = await platform.fs.read(path)
     const parsed = JSON.parse(raw)
     if (!Array.isArray(parsed)) return []
     return parsed

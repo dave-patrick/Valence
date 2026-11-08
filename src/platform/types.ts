@@ -85,7 +85,8 @@ export interface Platform {
     openFile(filters?: { name: string; extensions: string[] }[]): Promise<OpenFileResult>
     openFolder(): Promise<OpenFileResult>
     save(suggestedName: string): Promise<string | null>
-    confirm(message: string, detail?: string): Promise<boolean>
+    /** Two buttons: Cancel and `confirmLabel` (default "Discard changes"). True when confirmed. */
+    confirm(message: string, detail?: string, confirmLabel?: string): Promise<boolean>
     unsaved(title: string): Promise<UnsavedChoice>
   }
 
@@ -135,10 +136,17 @@ export interface Platform {
 
   export: {
     formats(): Promise<ExportFormat[]>
-    /** Print-to-PDF via the OS pipeline — preserves fonts and pagination. */
-    toPdf(html: string, suggestedName: string): Promise<void>
-    /** Convert via Pandoc. Rejects with a clear message if Pandoc is absent. */
-    viaPandoc(contents: string, from: string, to: string): Promise<string>
+    /**
+     * Print-to-PDF via the OS pipeline — preserves fonts and pagination. `path` is the file the
+     * person already chose (a full path); a bare name asks where to save.
+     */
+    toPdf(html: string, path: string): Promise<void>
+    /**
+     * Convert via Pandoc straight into `outPath`. Pandoc writes the file itself, because Word,
+     * OpenDocument and EPUB are binary and would be corrupted passing through as text. Rejects
+     * with a clear message if Pandoc is absent or fails.
+     */
+    viaPandoc(contents: string, from: string, to: string, outPath: string): Promise<void>
     hasPandoc(): Promise<boolean>
   }
 }

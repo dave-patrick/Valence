@@ -14,7 +14,7 @@ Grab the latest build from the [releases page](https://github.com/dave-patrick/V
 | Linux | `Valence-<version>-build-<build-id>-linux-<arch>.AppImage` | `chmod +x`, then run it |
 | macOS | `Valence-<version>-build-<build-id>-mac-<arch>.dmg` | Open it, drag Valence to Applications |
 
-There is no installer. On Windows, extract the zip before running it — launching from inside the archive trips SmartScreen. To uninstall, delete the folder.
+There is no installer. On Windows, extract the zip into its own folder before running it — launching from inside the archive trips SmartScreen. Updates add and replace files in that folder and only remove files an earlier update installed, so anything else you keep there is left alone. To uninstall, delete the folder.
 
 ---
 
@@ -95,7 +95,7 @@ Nothing reaches GitHub until a build has been tested and approved. A tag means "
 src/core/       ⚠ PURITY BOUNDARY -- no Node, no Electron, no React
                 types.ts · markdown/ (parse ⇄ serialise) · render/ · editor/ · htmlBridge.ts
 src/platform/   fs · window · dialog · menu · clipboard · export
-                interface only -- Electron impl, Tauri-ready, browser fallback
+                interface only -- Electron impl, browser fallback (a Tauri impl would slot in here)
 src/ui/         React shell -- Rail · Sidebar · StrataGutter · Inspector · StatusBar
 src/features/   outline · stats
 src/main/       Electron main process
@@ -108,17 +108,21 @@ src/preload/    the entire renderer->OS surface
 
 ## Design
 
-Columnar valence: cold slate stone veined with brass.
+Valence uses the house design shared with Quantos and the other Atomic 22 apps (dark charcoal,
+off-white and blue), so a folder of the apps looks like one family. Tokens live in
+`src/renderer/src/styles/tokens.css`.
 
 | Token | Light | Dark |
 | --- | --- | --- |
-| Background | `#F4F5F7` | `#131519` |
-| Surface | `#FFFFFF` | `#1A1D23` |
-| Ink | `#1A1D23` | `#E6E8EC` |
-| Rule | `#DFE2E7` | `#2A2F37` |
-| Accent (brass) | `#A8762A` | `#D9A44B` |
+| Background | `#F5F7FB` | `#0C131D` |
+| Surface | `#FFFFFF` | `#101824` |
+| Ink | `#0C131D` | `#EDF2FA` |
+| Rule | `#D6DDE8` | `#2C394A` |
+| Accent | `#1F6FD1` | `#78B6FF` |
 
-Prose is **Newsreader** (variable, optical size) at 19px/1.65 on a 68-character measure. UI is **Geist Sans** -- deliberately not Inter. Syntax highlighting is grammar-driven via Shiki and never doubles as decoration. No monospace labels, no all-caps eyebrows, no middot-joined meta strings, no uniform grid of rounded cards.
+Text is **Source Sans 3**, code **IBM Plex Mono**, and the wordmark **Chakra Petch** -- bundled with
+the app, so they work offline. Prose sits at 1.65 line height on a capped measure. Syntax
+highlighting is grammar-driven via Shiki and never doubles as decoration.
 
 The one bold move is the **strata gutter** -- a 3px strip at the edge of the column showing document position and heading nesting as stacked ticks, like the columnar jointing of valence. It is clickable, so it is navigation rather than ornament. Everything around it stays quiet.
 
@@ -128,7 +132,7 @@ Full rationale in `docs/02-architecture.md`.
 
 ## Testing
 
-354 tests, all passing. The five that matter:
+Over 570 tests, all passing (`pnpm test`). The five that matter:
 
 `test/roundtrip.test.ts` -- `parse -> serialise` must be idempotent, across 48 hand-written cases (CJK emphasis, nested mixed-type lists, setext headings, fences containing fences, tables with escaped pipes, front matter that must not be confused with a thematic break) and 120 deterministically-seeded generated documents.
 
@@ -150,7 +154,7 @@ This is the direct lesson from MarkText. They were the only project of the two w
 
 Worth reading before trusting the appearance. Full detail in `docs/03-roadmap.md`.
 
-**Verified** -- 354 tests, a jsdom mount of the real app, and a live browser session reading computed styles from the running application.
+**Verified** -- the test suite, a jsdom mount of the real app, and a live browser session reading computed styles from the running application.
 
 That last one earned its keep. It caught a bug nothing else could:
 
@@ -172,7 +176,13 @@ This is a design and scaffold, and the parts that carry the idea are real and te
 
 **Built** -- the layered architecture with an enforced purity boundary; the lossless markdown to editor-state round trip; hybrid / source / split views over one document; hidden syntax markers; KaTeX math and Mermaid diagram atoms; the complete MarkText table model (floating toolbar, chessboard picker, header toggles, resize handles, column drag-to-reorder); tabs with configurable locations and session restore; the read and export pipeline; the design system; prose-only word count; the swappable platform layer; and the Electron shell with PDF export.
 
-**Next** -- smart paste with clipboard images, then focus and typewriter modes. After that, Pandoc export for the full format matrix, file-tree browsing, and the Tauri backend behind the existing `Platform` interface.
+Also built since: smart paste with clipboard images, focus and typewriter modes, the workspace file
+tree, wiki links, version history, text files, Pandoc export (Word, OpenDocument, EPUB, LaTeX when
+Pandoc is installed), noticing files changed outside Valence, and recovery of unsaved edits after a
+crash.
+
+**Next** -- replace the HTML bridge (below) with a direct editor-to-Markdown mapping, and a Tauri
+backend behind the existing `Platform` interface.
 
 Sequenced in `docs/03-roadmap.md`.
 

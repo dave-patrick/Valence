@@ -15,14 +15,13 @@
     "noEmit": true,
     "verbatimModuleSyntax": true,
     "types": ["node", "vite/client"],
-    "baseUrl": ".",
     "paths": {
-      "@core/*": ["src/core/*"],
-      "@platform": ["src/platform/index.ts"],
-      "@shared/*": ["src/shared/*"],
-      "@ui/*": ["src/ui/*"],
-      "@features/*": ["src/features/*"],
-      "@/*": ["src/renderer/src/*"]
+      "@core/*": ["./src/core/*"],
+      "@platform": ["./src/platform/index.ts"],
+      "@shared/*": ["./src/shared/*"],
+      "@ui/*": ["./src/ui/*"],
+      "@features/*": ["./src/features/*"],
+      "@/*": ["./src/renderer/src/*"]
     }
   },
   "include": ["src/**/*.ts", "src/**/*.tsx", "electron.vite.config.ts"],

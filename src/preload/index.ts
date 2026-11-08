@@ -22,6 +22,12 @@ const api = {
     listDirRecursive: (path: string) => ipcRenderer.invoke('fs:listRecursive', path),
     watch: (path: string) => ipcRenderer.invoke('fs:watch', path),
     unwatch: (path: string) => ipcRenderer.invoke('fs:unwatch', path),
+    /** Fired with the path (as passed to `watch`) when a watched file changes on disk. */
+    onChanged: (cb: (path: string) => void) => {
+      const handler = (_e: unknown, path: string) => cb(path)
+      ipcRenderer.on('file:changed', handler)
+      return () => ipcRenderer.off('file:changed', handler)
+    },
     reveal: (path: string) => ipcRenderer.invoke('fs:reveal', path),
   },
   win: {
@@ -85,8 +91,8 @@ const api = {
     openFile: () => ipcRenderer.invoke('dialog:openFile'),
     openFolder: () => ipcRenderer.invoke('dialog:openFolder'),
     save: (suggested: string) => ipcRenderer.invoke('dialog:save', suggested),
-    confirm: (message: string, detail?: string) =>
-      ipcRenderer.invoke('dialog:confirm', message, detail ?? ''),
+    confirm: (message: string, detail?: string, confirmLabel?: string) =>
+      ipcRenderer.invoke('dialog:confirm', message, detail ?? '', confirmLabel ?? ''),
     unsaved: (title: string) => ipcRenderer.invoke('dialog:unsaved', title),
   },
   menu: {
@@ -106,8 +112,8 @@ const api = {
   exportAs: {
     formats: () => ipcRenderer.invoke('export:formats'),
     toPdf: (html: string, suggested: string) => ipcRenderer.invoke('export:pdf', html, suggested),
-    pandoc: (contents: string, from: string, to: string) =>
-      ipcRenderer.invoke('export:pandoc', contents, from, to),
+    pandoc: (contents: string, from: string, to: string, outPath: string) =>
+      ipcRenderer.invoke('export:pandoc', contents, from, to, outPath),
     hasPandoc: () => ipcRenderer.invoke('export:hasPandoc'),
   },
 }

@@ -19,21 +19,28 @@
  * process it was written by, and the only thing guaranteed to be on the machine is
  * Windows itself.
  *
- * The copy is `robocopy /MIR`, which mirrors the staged tree over the installation.
- * That removes files the new build no longer ships, which a plain copy would leave
- * behind as stale cruft.
+ * The copy is `robocopy /E`: it adds and overwrites, never mirrors. Mirroring (`/MIR`)
+ * deletes everything in the folder the new build does not ship -- including the person's
+ * own files when Valence was unzipped into Downloads or the Desktop. Files an earlier
+ * update installed and this build dropped are removed by name instead, from the manifest
+ * each update leaves behind (`INSTALL_MANIFEST`, see `staleFiles`).
  */
 
 import { app, BrowserWindow, net, shell } from 'electron'
 import { spawn } from 'node:child_process'
 import { createWriteStream } from 'node:fs'
-import { copyFile, chmod, mkdir, readdir, rename, rm, stat, writeFile } from 'node:fs/promises'
+import { createHash } from 'node:crypto'
+import { createReadStream } from 'node:fs'
+import { copyFile, chmod, mkdir, readFile, readdir, rename, rm, stat, writeFile } from 'node:fs/promises'
 import { basename, join } from 'node:path'
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import { tmpdir } from 'node:os'
 import {
+  cmdPath,
+  INSTALL_MANIFEST,
   planUpdate,
+  staleFiles,
   supportsSelfUpdate,
   type ReleaseInfo,
   type UpdateCandidate,
@@ -156,8 +163,44 @@ export async function downloadUpdate(
   })
 
   await pipeline(body, createWriteStream(target))
+
+  // A download that doesn't match GitHub's checksum (cut short, corrupted, or replaced on the
+  // way) is deleted rather than installed.
+  if (candidate.sha256) {
+    const actual = await sha256File(target)
+    if (actual !== candidate.sha256) {
+      await rm(target, { force: true })
+      throw new Error('The download did not match the checksum GitHub published for it, so it was not used. Try again.')
+    }
+  }
   onProgress?.(1)
   return target
+}
+
+async function sha256File(path: string): Promise<string> {
+  const hash = createHash('sha256')
+  await pipeline(createReadStream(path), hash)
+  return hash.digest('hex')
+}
+
+/** Every file under `root`, relative and `/`-separated. */
+async function listFiles(root: string, prefix = ''): Promise<string[]> {
+  const out: string[] = []
+  for (const entry of await readdir(join(root, prefix), { withFileTypes: true })) {
+    const rel = prefix ? `${prefix}/${entry.name}` : entry.name
+    if (entry.isDirectory()) out.push(...(await listFiles(root, rel)))
+    else out.push(rel)
+  }
+  return out
+}
+
+async function readManifest(dir: string): Promise<string[] | null> {
+  try {
+    const parsed = JSON.parse(await readFile(join(dir, INSTALL_MANIFEST), 'utf8'))
+    return Array.isArray(parsed) && parsed.every((p) => typeof p === 'string') ? parsed : null
+  } catch {
+    return null
+  }
 }
 
 /**
@@ -184,11 +227,11 @@ async function unpack(archive: string, into: string): Promise<string> {
 /**
  * Write the script that applies the update after this process exits.
  *
- * It waits for the given process to disappear, mirrors the staged build over the
- * installation, and starts the new executable. `robocopy` is used rather than `xcopy`
- * because `/MIR` deletes files the new build does not ship.
+ * It waits for the given process to disappear, copies the staged build over the
+ * installation (adding and overwriting only), deletes the named stale files, and starts the
+ * new executable.
  */
-async function writeApplyScript(staged: string, target: string, pid: number): Promise<string> {
+async function writeApplyScript(staged: string, target: string, pid: number, stale: readonly string[]): Promise<string> {
   const script = join(stagingRoot(), `apply-${Date.now()}.cmd`)
 
   // The name of the executable to restart. Taken from the running one, so a renamed
@@ -207,9 +250,11 @@ async function writeApplyScript(staged: string, target: string, pid: number): Pr
     '@echo off',
     'setlocal',
     `powershell -NoProfile -ExecutionPolicy Bypass -Command "Wait-Process -Id ${pid} -ErrorAction SilentlyContinue"`,
-    `robocopy "${staged}" "${target}" /MIR /NFL /NDL /NJH /NJS /NP`,
+    `robocopy "${cmdPath(staged)}" "${cmdPath(target)}" /E /IS /IT /NFL /NDL /NJH /NJS /NP`,
     'if errorlevel 8 exit /b 1',
-    `start "" "${join(target, exe)}"`,
+    // Only files an earlier update installed and this build no longer ships.
+    ...stale.map((rel) => `del /f /q "${cmdPath(join(target, ...rel.split('/')))}" 2>nul`),
+    `start "" "${cmdPath(join(target, exe))}"`,
     'endlocal',
     '',
   ].join('\r\n')
@@ -258,7 +303,11 @@ export async function applyUpdate(candidate: UpdateCandidate): Promise<boolean> 
   if (!effective) return false
 
   const target = installDir()
-  const script = await writeApplyScript(effective, target, process.pid)
+  // Record what this build installs, so the next update can remove what it later drops.
+  const files = (await listFiles(effective)).filter((f) => f.toLowerCase() !== INSTALL_MANIFEST)
+  await writeFile(join(effective, INSTALL_MANIFEST), JSON.stringify(files))
+  const stale = staleFiles(await readManifest(target), files)
+  const script = await writeApplyScript(effective, target, process.pid, stale)
 
   const child = spawn('cmd.exe', ['/c', script], {
     detached: true,

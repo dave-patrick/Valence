@@ -1,7 +1,7 @@
 {
   "name": "valence",
-  "version": "0.2.3",
-  "buildId": "2026.02.11.10",
+  "version": "0.2.4",
+  "buildId": "2026.07.11.11",
   "private": true,
   "description": "Valence - a local-first Markdown editor. Typora seamless reading, MarkText editor depth, modernised.",
   "author": "Dave Patrick <dave-patrick@users.noreply.github.com>",
@@ -55,12 +55,12 @@
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "tailwindcss": "^4.3.3",
-    "typescript": "^5.9.0",
+    "typescript": "^6.0.3",
     "vite": "^8.3.4",
     "vitest": "^5.0.5"
   },
   "build": {
-    "artifactName": "Valence-${version}-build-2026.02.11.10-${os}-${arch}.${ext}",
+    "artifactName": "Valence-${version}-build-2026.07.11.11-${os}-${arch}.${ext}",
     "appId": "dev.valence.editor",
     "productName": "Valence",
     "directories": {
@@ -92,44 +92,7 @@
       "target": [
         "zip"
       ],
-      "icon": "resources/icon.png",
-      "fileAssociations": [
-        {
-          "ext": "md",
-          "name": "Markdown",
-          "description": "Markdown document",
-          "icon": "resources/icon.png",
-          "role": "Editor"
-        },
-        {
-          "ext": "markdown",
-          "name": "Markdown",
-          "description": "Markdown document",
-          "icon": "resources/icon.png",
-          "role": "Editor"
-        },
-        {
-          "ext": "mdown",
-          "name": "Markdown",
-          "description": "Markdown document",
-          "icon": "resources/icon.png",
-          "role": "Editor"
-        },
-        {
-          "ext": "mkd",
-          "name": "Markdown",
-          "description": "Markdown document",
-          "icon": "resources/icon.png",
-          "role": "Editor"
-        },
-        {
-          "ext": "txt",
-          "name": "Text",
-          "description": "Plain text file",
-          "icon": "resources/icon.png",
-          "role": "Editor"
-        }
-      ]
+      "icon": "resources/icon.png"
     },
     "linux": {
       "category": "Office",
@@ -138,19 +101,15 @@
         "deb"
       ],
       "icon": "resources/icon.png"
-    },
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true
     }
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/OWNER/valence.git"
+    "url": "git+https://github.com/dave-patrick/Valence.git"
   },
-  "homepage": "https://github.com/OWNER/valence#readme",
+  "homepage": "https://github.com/dave-patrick/Valence#readme",
   "bugs": {
-    "url": "https://github.com/OWNER/valence/issues"
+    "url": "https://github.com/dave-patrick/Valence/issues"
   },
   "keywords": [
     "markdown",

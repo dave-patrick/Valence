@@ -19,10 +19,10 @@
 import { isAbsolute, join } from 'node:path'
 
 /**
- * Matches electron-vite's output for this project. With `"type": "module"` in package.json
- * the ESM bundle is written as `.js`; `.mjs` would be right only for a CommonJS project.
+ * Matches electron-vite's output for this project: the preload is built as CommonJS
+ * (`index.cjs`, see electron.vite.config.ts) so the sandboxed main window can run it.
  */
-export const preloadFilename = 'index.js'
+export const preloadFilename = 'index.cjs'
 
 export function preloadPath(mainDir: string): string {
   return join(mainDir, '..', 'preload', preloadFilename)

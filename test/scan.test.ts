@@ -107,3 +107,17 @@ describe('scanVault', () => {
     expect(out.map((f) => f.relative)).toEqual(['a.md', 'z.md'])
   })
 })
+describe('Windows paths from the one-call listing', () => {
+  it('come back with forward slashes, like the folder-by-folder walk', async () => {
+    const listing = [
+      { path: 'C:\\notes\\a.md', isDirectory: false },
+      { path: 'C:\\notes\\sub', isDirectory: true },
+      { path: 'C:\\notes\\sub\\b.md', isDirectory: false },
+    ]
+    const files = await scanVault('C:\\notes', async () => [], async () => listing)
+    expect(files).toEqual([
+      { path: 'C:/notes/a.md', relative: 'a.md' },
+      { path: 'C:/notes/sub/b.md', relative: 'sub/b.md' },
+    ])
+  })
+})

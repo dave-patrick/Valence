@@ -26,6 +26,8 @@ export interface ReleaseAsset {
   name: string
   browser_download_url: string
   size: number
+  /** GitHub's checksum for the file, as `sha256:<hex>`. Absent on assets uploaded before GitHub added it. */
+  digest?: string | null
 }
 
 /** The subset of the GitHub release payload this module reads. */
@@ -49,6 +51,8 @@ export interface UpdateCandidate {
   assetUrl: string
   /** Asset size in bytes. */
   size: number
+  /** Expected SHA-256 of the download (lower-case hex), when GitHub publishes one. */
+  sha256: string | null
 }
 
 /**
@@ -162,5 +166,41 @@ export function planUpdate(
     assetName: asset.name,
     assetUrl: asset.browser_download_url,
     size: asset.size,
+    sha256: parseDigest(asset.digest),
   }
+}
+
+/** `sha256:<64 hex>` → the hex, lower-cased; anything else → null. */
+export function parseDigest(digest: string | null | undefined): string | null {
+  const m = /^sha256:([0-9a-f]{64})$/i.exec(digest ?? '')
+  return m ? m[1]!.toLowerCase() : null
+}
+
+/**
+ * The file that lists what an update installed, kept in the installation folder. The next
+ * update removes only files on that list that the newer build no longer ships.
+ */
+export const INSTALL_MANIFEST = 'valence-files.json'
+
+/**
+ * Which files an update may delete from the installation folder.
+ *
+ * Only files the previous update itself installed (its manifest) and the new build no longer
+ * ships. With no manifest -- the first update after unzipping by hand -- nothing is deleted:
+ * the folder may hold the person's own files, and mirroring the new build over it (what
+ * `robocopy /MIR` did) would delete them.
+ *
+ * Paths are relative, `/`-separated; anything absolute or climbing out with `..` is dropped.
+ */
+export function staleFiles(previous: readonly string[] | null, next: readonly string[]): string[] {
+  if (!previous) return []
+  const keep = new Set(next.map((p) => p.toLowerCase()))
+  const safe = (p: string) => p.length > 0 && !p.startsWith('/') && !/^[a-z]:/i.test(p) && !p.split('/').includes('..')
+  return previous.filter((p) => safe(p) && !keep.has(p.toLowerCase()) && p.toLowerCase() !== INSTALL_MANIFEST)
+}
+
+/** A path made safe inside double quotes in a .cmd file: `%` would otherwise expand as a variable. */
+export function cmdPath(path: string): string {
+  if (/["\r\n]/.test(path)) throw new Error(`Unsupported character in path: ${path}`)
+  return path.replace(/%/g, '%%')
 }

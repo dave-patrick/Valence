@@ -19,12 +19,13 @@ const fresh = () => `/doc-${++counter}.md`
 
 describe('snapshotPath', () => {
   it('puts history beside the document in a dotfile directory', () => {
-    expect(snapshotPath('/notes/journal.md')).toBe('/notes/.valence/journal.history.json')
-    expect(snapshotPath('/notes/journal.txt')).toBe('/notes/.valence/journal.history.json')
+    expect(snapshotPath('/notes/journal.md')).toBe('/notes/.valence/journal.md.history.json')
+    // Different files, different histories (they used to share journal.history.json).
+    expect(snapshotPath('/notes/journal.txt')).toBe('/notes/.valence/journal.txt.history.json')
   })
 
   it('handles a rootless path', () => {
-    expect(snapshotPath('journal.md')).toBe('.valence/journal.history.json')
+    expect(snapshotPath('journal.md')).toBe('.valence/journal.md.history.json')
   })
 })
 
@@ -91,5 +92,14 @@ describe('saveSnapshot / loadSnapshots', () => {
     await saveSnapshot(b, 'B')
     expect((await loadSnapshots(a)).map((s) => s.source)).toEqual(['A'])
     expect((await loadSnapshots(b)).map((s) => s.source)).toEqual(['B'])
+  })
+})
+describe('history from before file extensions were part of the name', () => {
+  it('is still found for a Markdown file until it saves a new version', async () => {
+    const fs = getPlatform().fs
+    await fs.write('/legacy/.valence/plan.history.json', JSON.stringify([{ ts: 1, source: '# old' }]))
+    expect((await loadSnapshots('/legacy/plan.md')).map((s) => s.source)).toEqual(['# old'])
+    // A text file of the same name never picks up the Markdown file's versions.
+    expect(await loadSnapshots('/legacy/plan.txt')).toEqual([])
   })
 })

@@ -28,7 +28,6 @@ export function createWebPlatform(): Platform {
   } catch {
     /* first run */
   }
-  const watchers = new Set<() => void>()
   const guardFns = new Set<() => Promise<boolean>>()
   const commandFns = new Set<(id: string) => void>()
 
@@ -39,8 +38,6 @@ export function createWebPlatform(): Platform {
       /* quota — non-fatal, the document lives in memory */
     }
   }
-
-  const touch = () => watchers.forEach((fn) => fn())
 
   return {
     kind: 'web',
@@ -60,7 +57,6 @@ export function createWebPlatform(): Platform {
       async write(path, contents) {
         store.set(path, contents)
         persist()
-        touch()
       },
       /**
        * Binary writes are stored base64 so a pasted image survives a round trip through
@@ -90,10 +86,10 @@ export function createWebPlatform(): Platform {
           .filter((p) => p.replace(/\\/g, '/').startsWith(norm + '/'))
           .map((p): FileStat => ({ path: p, size: 0, mtimeMs: 0, isDirectory: false }))
       },
+      // The in-memory store has no outside writers, so nothing ever changes "on disk" behind the
+      // app's back. (This used to register a watcher that re-ran every watcher -- an endless loop the first time anything was written.)
       async watch() {
-        const fn = () => touch()
-        watchers.add(fn)
-        return () => watchers.delete(fn)
+        return () => {}
       },
       async reveal() {
         /* no-op in a browser */

@@ -24,6 +24,7 @@ export interface ValenceBridge {
     listDirRecursive(path: string): Promise<unknown[]>
     watch(path: string): Promise<void>
     unwatch(path: string): Promise<void>
+    onChanged(cb: (path: string) => void): () => void
     reveal(path: string): Promise<void>
   }
   win: {
@@ -39,7 +40,7 @@ export interface ValenceBridge {
     openFile(): Promise<unknown>
     openFolder(): Promise<unknown>
     save(suggested: string): Promise<string | null>
-    confirm(message: string, detail?: string): Promise<boolean>
+    confirm(message: string, detail?: string, confirmLabel?: string): Promise<boolean>
     unsaved(title: string): Promise<UnsavedChoice>
   }
   menu: {
@@ -82,7 +83,7 @@ export interface ValenceBridge {
   exportAs: {
     formats(): Promise<unknown[]>
     toPdf(html: string, suggested: string): Promise<void>
-    pandoc(contents: string, from: string, to: string): Promise<string>
+    pandoc(contents: string, from: string, to: string, outPath: string): Promise<void>
     hasPandoc(): Promise<boolean>
   }
 }
@@ -95,9 +96,6 @@ function bridge(): ValenceBridge | null {
 export function createNodePlatform(): Platform {
   const b = bridge()
   if (!b) return createWebPlatform()
-
-  const watched = new Set<string>()
-  const watchHandlers = new Map<string, (changed?: unknown) => void>()
 
   return {
     kind: 'electron',
@@ -114,27 +112,19 @@ export function createNodePlatform(): Platform {
       exists: (p) => b.fs.exists(p),
       listDir: async (p) => (await b.fs.listDir(p)) as never,
       listDirRecursive: async (p) => (await b.fs.listDirRecursive(p)) as never,
-      async watch(path) {
-        if (watched.has(path)) {
-          return () => {
-            watched.delete(path)
-            void b.fs.unwatch(path)
-          }
-        }
-        watched.add(path)
+      // One subscription per watched path; main reports changes by the path we asked for.
+      // (This used to listen on the menu-command channel and never called onChange, so
+      // nothing ever noticed a file changing on disk.)
+      async watch(path, onChange) {
+        let active = true
+        const off = b.fs.onChanged((changed) => {
+          if (active && changed === path) onChange()
+        })
         await b.fs.watch(path)
-        // The main process broadcasts file-changed generically; we bind it to the path we
-        // asked to watch and ignore everything else.
-        const handler = (changed: unknown) => {
-          if (changed === path || changed === undefined) watchHandlers.get(path)?.()
-        }
-        watchHandlers.set(path, handler)
-        const off = b.menu.onCommand(handler as (id: string) => void)
         return () => {
-          watched.delete(path)
-          watchHandlers.delete(path)
+          active = false
           off()
-          void b.fs.unwatch(path)
+          void b.fs.unwatch(path).catch(() => {})
         }
       },
       reveal: (p) => b.fs.reveal(p),
@@ -157,7 +147,7 @@ export function createNodePlatform(): Platform {
       openFile: async () => (await b.dialog.openFile()) as never,
       openFolder: async () => (await b.dialog.openFolder()) as never,
       save: (s) => b.dialog.save(s),
-      confirm: (m, d) => b.dialog.confirm(m, d),
+      confirm: (m, d, label) => b.dialog.confirm(m, d, label),
       unsaved: (t) => b.dialog.unsaved(t),
     },
 
@@ -192,7 +182,7 @@ export function createNodePlatform(): Platform {
     export: {
       formats: async () => (await b.exportAs.formats()) as never,
       toPdf: (h, s) => b.exportAs.toPdf(h, s),
-      viaPandoc: (c, f, t) => b.exportAs.pandoc(c, f, t),
+      viaPandoc: (c, f, t, out) => b.exportAs.pandoc(c, f, t, out),
       hasPandoc: () => b.exportAs.hasPandoc(),
     },
   }

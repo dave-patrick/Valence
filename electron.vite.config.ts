@@ -33,6 +33,9 @@ export default defineConfig({
       rollupOptions: {
         input: resolve('src/preload/index.ts'),
         external: ['electron'],
+        // CommonJS, because Electron runs only CommonJS preloads in a sandboxed window, and
+        // the main window is sandboxed. `.cjs` so Node doesn't read it as ESM ("type": "module").
+        output: { format: 'cjs', entryFileNames: 'index.cjs' },
       },
     },
   },

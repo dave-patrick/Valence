@@ -1,8 +1,10 @@
-import { app, BrowserWindow, dialog, ipcMain, Menu, shell } from 'electron'
+import { app, BrowserWindow, clipboard, ClipboardItem, dialog, ipcMain, Menu, shell } from 'electron'
 import { readFile, writeFile, stat, readdir, mkdir } from 'node:fs/promises'
 import { watch, type FSWatcher, statSync as statSyncFile } from 'node:fs'
-import { basename, dirname, join } from 'node:path'
+import { basename, dirname, isAbsolute, join } from 'node:path'
+import { execFile, spawn } from 'node:child_process'
 import { DOCUMENT_EXTENSIONS } from '../shared/fileTypes'
+import { decideNavigation, type NavigationDecision } from '../shared/navigation'
 import { preloadPath, resolveDataPath as resolvePath } from './paths'
 import { applyUpdate, canSelfUpdate, checkForUpdate, downloadUpdate, openReleasesPage } from './updater'
 import {
@@ -53,7 +55,8 @@ function createWindow(): void {
     trafficLightPosition: { x: 14, y: 15 },
     webPreferences: {
       preload: preloadPath(__dirname),
-      sandbox: false,
+      // The preload is built as CommonJS (see electron.vite.config.ts), so it can run sandboxed.
+      sandbox: true,
       contextIsolation: true,
       nodeIntegration: false,
       spellcheck: true,
@@ -144,10 +147,37 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()
 })
 
+/** Carries out a navigation decision: see src/shared/navigation.ts for why. */
+function actOn(decision: NavigationDecision): void {
+  if (decision.kind === 'external') void shell.openExternal(decision.url)
+  else if (decision.kind === 'open') {
+    try {
+      if (!statSyncFile(decision.path).isFile()) return
+    } catch {
+      return
+    }
+    if (main) {
+      main.focus()
+      main.webContents.send('doc:open-files', [decision.path])
+    }
+  }
+}
+
 app.on('web-contents-created', (_e, contents) => {
   contents.setWindowOpenHandler(({ url }) => {
-    void shell.openExternal(url)
+    actOn(decideNavigation(url, ''))
     return { action: 'deny' }
+  })
+  // A link followed inside a window (the Read view has plain <a href>) would otherwise replace
+  // the app with that page, and that page would get the preload bridge.
+  contents.on('will-navigate', (event, url) => {
+    const decision = decideNavigation(url, contents.getURL())
+    if (decision.kind === 'stay') return
+    event.preventDefault()
+    actOn(decision)
+  })
+  contents.on('will-redirect', (event, url) => {
+    if (decideNavigation(url, contents.getURL()).kind !== 'stay') event.preventDefault()
   })
 })
 
@@ -222,6 +252,9 @@ ipcMain.handle('fs:list', async (_e, path: string) => {
   }
 })
 
+/** Folders never listed by the recursive walk; the same names the workspace scan and file tree drop. */
+const SKIPPED_FOLDERS = new Set(['.git', 'node_modules', '.obsidian', '.trash', '.valence'])
+
 ipcMain.handle('fs:listRecursive', async (_e, path: string) => {
   const target = resolveDataPath(path)
   const out: { path: string; size: number; mtimeMs: number; isDirectory: boolean }[] = []
@@ -234,6 +267,9 @@ ipcMain.handle('fs:listRecursive', async (_e, path: string) => {
     }
     for (const e of entries) {
       const full = `${dir}/${e.name}`
+      // Never descend into these: the workspace and file tree drop them anyway, and walking
+      // node_modules or .git first made opening a large folder take minutes.
+      if (e.isDirectory() && SKIPPED_FOLDERS.has(e.name)) continue
       if (e.isDirectory()) {
         out.push({ path: full, size: 0, mtimeMs: 0, isDirectory: true })
         await walk(full)
@@ -252,12 +288,32 @@ ipcMain.handle('fs:listRecursive', async (_e, path: string) => {
 })
 ipcMain.handle('fs:reveal', (_e, path: string) => shell.showItemInFolder(resolveDataPath(path)))
 
+// Watches the file's folder rather than the file: editors and sync tools often save by writing a
+// new file and renaming it over the old one, which a watch on the old file never sees. Changes are
+// reported by the path the renderer asked for, a moment after they settle.
 ipcMain.handle('fs:watch', (_e, path: string) => {
   if (watchers.has(path)) return
-  const w = watch(path, () => {
-    main?.webContents.send('file:changed', path)
-  })
-  watchers.set(path, w)
+  const target = resolveDataPath(path)
+  const name = basename(target)
+  let timer: NodeJS.Timeout | null = null
+  try {
+    const w = watch(dirname(target), (_event, changed) => {
+      if (changed && changed.toString() !== name) return
+      if (timer) clearTimeout(timer)
+      timer = setTimeout(() => main?.webContents.send('file:changed', path), 150)
+    })
+    w.on('error', () => {
+      w.close()
+      watchers.delete(path)
+    })
+    watchers.set(path, w)
+  } catch {
+    /* an unwatchable folder (removed, no permission): changes just won't be noticed */
+  }
+})
+ipcMain.handle('fs:unwatch', (_e, path: string) => {
+  watchers.get(path)?.close()
+  watchers.delete(path)
 })
 
 ipcMain.handle('win:title', (_e, title: string) => {
@@ -326,6 +382,9 @@ ipcMain.handle('update:check', async () => {
   }
 })
 
+/** The update the person downloaded; installing uses exactly this, not whatever is newest by then. */
+let downloadedUpdate: Awaited<ReturnType<typeof checkForUpdate>> = null
+
 ipcMain.handle('update:download', async () => {
   if (!app.isPackaged) return
   try {
@@ -337,6 +396,7 @@ ipcMain.handle('update:download', async () => {
     await downloadUpdate(candidate, (fraction) => {
       if (main) main.webContents.send('update:progress', fraction)
     })
+    downloadedUpdate = candidate
     if (main) main.webContents.send('update:downloaded', candidate.version)
   } catch (err) {
     if (main) main.webContents.send('update:error', String(err))
@@ -346,7 +406,7 @@ ipcMain.handle('update:download', async () => {
 ipcMain.handle('update:install', async () => {
   if (!app.isPackaged) return
   try {
-    const candidate = await checkForUpdate()
+    const candidate = downloadedUpdate ?? (await checkForUpdate())
     if (!candidate) {
       if (main) main.webContents.send('update:error', 'No update is available.')
       return
@@ -394,10 +454,10 @@ ipcMain.handle('dialog:save', async (_e, suggested: string) => {
   return r.canceled ? null : (r.filePath ?? null)
 })
 
-ipcMain.handle('dialog:confirm', async (_e, message: string, detail: string) => {
+ipcMain.handle('dialog:confirm', async (_e, message: string, detail: string, confirmLabel?: string) => {
   const r = await dialog.showMessageBox({
     type: 'question',
-    buttons: ['Cancel', 'Discard changes'],
+    buttons: ['Cancel', confirmLabel || 'Discard changes'],
     defaultId: 0,
     cancelId: 0,
     message,
@@ -426,16 +486,35 @@ ipcMain.on('menu:build', (_e, items: unknown) => {
   Menu.setApplicationMenu(Menu.buildFromTemplate(items as never))
 })
 
-ipcMain.on('menu:command', (e) => {
-  main?.webContents.send('menu:command', (e as unknown as { id: string }).id)
-})
 
-ipcMain.handle('clip:writeText', (_e, text: string) => main?.webContents.send('clip:text', text))
-ipcMain.handle('clip:writeHtml', (_e, html: string) => main?.webContents.send('clip:html', html))
-ipcMain.handle('clip:writeImage', (_e, data: ArrayBuffer, ext: string) =>
-  main?.webContents.send('clip:image', { data, ext }),
-)
-ipcMain.handle('clip:read', () => ({ text: '', html: '' }))
+// The system clipboard. These used to send the content back to the renderer on a channel nothing
+// listened to, so "Copy as Markdown / HTML / plain text" never reached the clipboard.
+ipcMain.handle('clip:writeText', (_e, text: string) => clipboard.writeText(String(text)))
+ipcMain.handle('clip:writeHtml', async (_e, html: string) => {
+  // Plain text alongside, for apps that can't paste HTML.
+  const text = String(html).replace(/<(script|style)[\s\S]*?<\/\1>/gi, '').replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ')
+    .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&')
+  await clipboard.write([new ClipboardItem({ 'text/html': String(html), 'text/plain': text })])
+})
+const IMAGE_TYPES: Record<string, string> = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp' }
+ipcMain.handle('clip:writeImage', async (_e, data: ArrayBuffer, ext: string) => {
+  const type = IMAGE_TYPES[String(ext).toLowerCase()] ?? 'image/png'
+  await clipboard.write([new ClipboardItem({ [type]: new Blob([new Uint8Array(data)], { type }) })])
+})
+ipcMain.handle('clip:read', async () => {
+  const text = await clipboard.readText().catch(() => '')
+  let html = ''
+  try {
+    const item = (await clipboard.read()).find((i) => i.types.includes('text/html'))
+    if (item) {
+      const value = await item.getType('text/html')
+      html = typeof value === 'string' ? value : value instanceof Blob ? await value.text() : ''
+    }
+  } catch {
+    html = ''
+  }
+  return { text, html }
+})
 
 // File associations: register Valence as the handler for text/markdown files.
 // Done at runtime via the registry because the zip distribution has no installer.
@@ -486,31 +565,61 @@ ipcMain.handle('export:formats', () => [
 
 /** PDF via the OS print pipeline — same CSS as the reader view, real pagination,
  *  real font embedding, and PDF bookmarks generated from the outline. */
-ipcMain.handle('export:pdf', async (_e, html: string, suggested: string) => {
+ipcMain.handle('export:pdf', async (_e, html: string, chosen: string) => {
   if (!main) return
-  const win = new BrowserWindow({ show: false, webPreferences: { offscreen: true } })
+  // The exported HTML is the person's document, which may contain raw HTML: render it with
+  // scripts off, sandboxed and without a preload, since it only needs to be laid out and printed.
+  const win = new BrowserWindow({ show: false, webPreferences: { offscreen: true, javascript: false, sandbox: true } })
   await win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html))
-  const r = await dialog.showSaveDialog({
-    defaultPath: suggested.replace(/\.md$/, '.pdf'),
-    filters: [{ name: 'PDF', extensions: ['pdf'] }],
-  })
-  if (!r.canceled && r.filePath) {
-    const pdf = await win.webContents.printToPDF({ printBackground: true, pageSize: 'A4' })
-    await writeFile(r.filePath, pdf)
+  try {
+    // The export dialog has already asked where to save; asking again showed two save dialogs.
+    let target: string | null = isAbsolute(chosen) ? chosen : null
+    if (!target) {
+      const r = await dialog.showSaveDialog({
+        defaultPath: chosen.replace(/\.md$/, '.pdf'),
+        filters: [{ name: 'PDF', extensions: ['pdf'] }],
+      })
+      target = !r.canceled && r.filePath ? r.filePath : null
+    }
+    if (target) {
+      // Letter in the US and Canada, A4 elsewhere, from the system's locale.
+      const letter = /^(en-US|en-CA|es-US|fr-CA)$/i.test(app.getLocale()) || /-(US|CA)$/i.test(app.getLocale())
+      const pdf = await win.webContents.printToPDF({ printBackground: true, pageSize: letter ? 'Letter' : 'A4' })
+      await writeFile(target, pdf)
+    }
+  } finally {
+    win.destroy()
   }
-  win.destroy()
 })
 
-ipcMain.handle('export:hasPandoc', () => process.env['VALENCE_PANDOC'] === '1')
-ipcMain.handle('export:pandoc', async (_e, contents: string, from: string, to: string) => {
-  if (process.env['VALENCE_PANDOC'] !== '1') {
-    throw new Error('Pandoc was not found. Install it to export to this format.')
+/** Whether Pandoc runs on this machine. Checked once (it used to need VALENCE_PANDOC=1 set by hand). */
+let pandocAvailable: Promise<boolean> | null = null
+function hasPandoc(): Promise<boolean> {
+  pandocAvailable ??= new Promise((resolveCheck) => {
+    execFile('pandoc', ['--version'], { timeout: 10_000, windowsHide: true }, (err) => resolveCheck(!err))
+  })
+  return pandocAvailable
+}
+
+const PANDOC_FORMATS = new Set(['docx', 'odt', 'epub', 'latex', 'html', 'markdown'])
+
+ipcMain.handle('export:hasPandoc', () => hasPandoc())
+ipcMain.handle('export:pandoc', async (_e, contents: string, from: string, to: string, outPath: string) => {
+  if (!PANDOC_FORMATS.has(from) || !PANDOC_FORMATS.has(to)) throw new Error(`Pandoc can't convert ${from} to ${to} here.`)
+  if (!outPath || !isAbsolute(outPath)) throw new Error('Choose where to save the export.')
+  if (!(await hasPandoc())) {
+    pandocAvailable = null // installed since? check again next time
+    throw new Error('Pandoc was not found. Install it from pandoc.org, then try again.')
   }
-  const { execFile } = await import('node:child_process')
-  return new Promise((resolve, reject) => {
-    execFile('pandoc', ['-f', from, '-t', to], (err, stdout) =>
-      err ? reject(err) : resolve(stdout),
-    )
+  // Pandoc writes the file itself (-o): Word, OpenDocument and EPUB are binary formats, and
+  // reading them back as text corrupted every export. The document goes in on stdin.
+  await new Promise<void>((resolveRun, reject) => {
+    const child = spawn('pandoc', ['-f', from, '-t', to, '-s', '-o', outPath], { windowsHide: true })
+    let stderr = ''
+    child.stderr.on('data', (chunk) => (stderr += chunk))
+    child.on('error', reject)
+    child.on('close', (code) => (code === 0 ? resolveRun() : reject(new Error(stderr.trim() || `Pandoc stopped with code ${code}.`))))
+    child.stdin.end(contents, 'utf8')
   })
 })
 

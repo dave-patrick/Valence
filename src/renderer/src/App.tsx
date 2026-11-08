@@ -22,6 +22,8 @@ import { computeStats } from '@features/stats/stats'
 import { outlineOf, type OutlineEntry } from '@features/outline/outline'
 import { headingIndex } from '@features/outline/navigation'
 import { isMarkdownDocument, preserveLineEndings } from '@shared/fileTypes'
+import { resolveDocumentLink } from '@shared/navigation'
+import { loadDrafts, restoreDrafts, saveDrafts } from '@features/settings/drafts'
 import { buildBacklinks, resolveWikiLink } from '@core/wiki'
 import { useWorkspace } from '@features/workspace'
 import { ExportDialog } from '@features/export/ExportDialog'
@@ -49,10 +51,14 @@ import {
   setScroll,
   untitled,
   update as updateDoc,
+  changedOnDisk,
   type Session,
 } from '@core/session'
 
 export type ViewMode = 'hybrid' | 'source' | 'split'
+
+/** How long typing pauses before the rich editor's content is converted back to Markdown. */
+const CONVERSION_DELAY_MS = 200
 export type PanelId = 'files' | 'outline' | 'search' | null
 
 /**
@@ -396,6 +402,22 @@ useEffect(() => {
         current = next.documents.length ? next : fallback()
       }
 
+      // Put back edits that weren't saved when Valence last closed (a crash, a forced restart).
+      const drafts = await loadDrafts()
+      if (drafts.length) {
+        const disk = new Map<string, string | null>()
+        for (const d of drafts) {
+          if (!d.path || current.documents.some((doc) => doc.path === d.path)) continue
+          disk.set(d.path, await platform.fs.read(d.path).catch(() => null))
+        }
+        const welcome = current.documents.length === 1 && !current.documents[0]!.path && current.documents[0]!.source === WELCOME ? current.documents[0]! : null
+        const recovered = restoreDrafts(current, drafts, disk)
+        if (recovered.restored > 0) {
+          current = welcome ? closeDoc(recovered.session, welcome.id) : recovered.session
+          notify(`Recovered unsaved changes in ${recovered.restored} ${recovered.restored === 1 ? 'document' : 'documents'}.`)
+        }
+      }
+
       if (cancelled) return
       setSession(current)
 
@@ -458,9 +480,9 @@ useEffect(() => {
     }
   }, [platform, notify])
 
-  // "Open with" while Valence is already running: main forwards the file paths here.
-  useEffect(() => {
-    return platform.window.onOpenFiles(async (paths) => {
+  /** Opens files as tabs (or switches to one already open). */
+  const openPathsInTabs = useCallback(
+    async (paths: readonly string[]) => {
       for (const path of paths) {
         try {
           let current = sessionRef.current
@@ -482,8 +504,30 @@ useEffect(() => {
           /* unreadable file: skip */
         }
       }
-    })
-  }, [platform])
+    },
+    [platform],
+  )
+
+  // "Open with" while Valence is already running, or a link to a document: main forwards the paths here.
+  useEffect(() => platform.window.onOpenFiles((paths) => void openPathsInTabs(paths)), [platform, openPathsInTabs])
+
+  /**
+   * Links in the preview. Left alone, a click replaced the whole app with the linked page.
+   * Web links go to the browser; links to documents open as tabs, resolved against the
+   * document's own folder; anything else does nothing.
+   */
+  const onPreviewClick = useCallback(
+    (event: React.MouseEvent<HTMLElement>) => {
+      const anchor = (event.target as HTMLElement).closest?.('a[href]') as HTMLAnchorElement | null
+      if (!anchor) return
+      const action = resolveDocumentLink(anchor.getAttribute('href') ?? '', activeDoc(sessionRef.current)?.path ?? null)
+      if (action.kind === 'anchor') return
+      event.preventDefault()
+      if (action.kind === 'external') window.open(action.url)
+      else if (action.kind === 'open') void openPathsInTabs([action.path])
+    },
+    [openPathsInTabs],
+  )
 
   useEffect(() => {
     const root = document.documentElement
@@ -539,6 +583,27 @@ useEffect(() => {
 
   const initialHtml = useMemo(() => blocksToHtml(parseMarkdown(WELCOME).blocks), [])
   const loadedFor = useRef<string>('')
+  const editorRef = useRef<{ getHTML(): string } | null>(null)
+  const conversionTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  /** The single conversion point: editor HTML -> block state -> markdown, into the loaded document. */
+  const convertEditor = useCallback((e: { getHTML(): string }) => {
+    const id = loadedFor.current
+    if (!id || !isMarkdownDocument(byId(sessionRef.current, id)?.path ?? null)) return
+    const { text } = serialiseMarkdown(null, htmlToBlocks(e.getHTML()))
+    if (byId(sessionRef.current, id)?.source === text) return
+    // Update the ref as well, so a save right after a flush writes the new text.
+    sessionRef.current = updateDoc(sessionRef.current, id, { source: text })
+    setSession((s) => (byId(s, id) ? updateDoc(s, id, { source: text }) : s))
+  }, [])
+
+  /** Applies typing that is still waiting for its pause. Call before reading a document's text. */
+  const flushEditor = useCallback(() => {
+    if (!conversionTimer.current) return
+    clearTimeout(conversionTimer.current)
+    conversionTimer.current = null
+    if (editorRef.current) convertEditor(editorRef.current)
+  }, [convertEditor])
 
   // Focus, typewriter and line numbers read settings through getters, so toggling them
   // takes effect immediately without rebuilding the editor or disturbing the caret.
@@ -603,14 +668,15 @@ useEffect(() => {
     },
     onUpdate: ({ editor: e }) => {
       if (!isMarkdownDocument(activeDoc(sessionRef.current)?.path ?? null)) return
-      // The single conversion point: editor HTML -> block state -> markdown.
-      const blocks = htmlToBlocks(e.getHTML())
-      const { text } = serialiseMarkdown(null, blocks)
-      setSession((s) => {
-        const current = activeDoc(s)
-        if (!current || current.id !== loadedFor.current) return s
-        return updateDoc(s, current.id, { source: text })
-      })
+      // Converting the whole document on every keystroke made typing lag in long documents,
+      // so it waits for a short pause. Anything that reads the text first (save, close,
+      // switching tabs) calls flushEditor().
+      editorRef.current = e
+      if (conversionTimer.current) clearTimeout(conversionTimer.current)
+      conversionTimer.current = setTimeout(() => {
+        conversionTimer.current = null
+        convertEditor(e)
+      }, CONVERSION_DELAY_MS)
     },
     onSelectionUpdate: ({ editor: e }) => {
       const $pos = e.state.doc.resolve(Math.min(e.state.selection.from, e.state.doc.content.size))
@@ -625,7 +691,6 @@ useEffect(() => {
 
       // Slash menu detection.
       const range = detectSlash(e)
-      if (range) (window as any).__slashLast = range
       if (!range) {
         setSlashMenu(null)
         return
@@ -649,6 +714,8 @@ useEffect(() => {
     // every keystroke.
     if (loadedFor.current === doc.id) return
 
+    // Typing in the previous document that hadn't been converted yet belongs to that document.
+    flushEditor()
     loadedFor.current = doc.id
     if (!isMarkdownDocument(doc.path)) return
     editor.commands.setContent(blocksToHtml(parseMarkdown(doc.source).blocks), { emitUpdate: false })
@@ -829,8 +896,95 @@ useEffect(() => {
     patchSettings({ workspaceRoot: folder, recentWorkspaces: next.recentWorkspaces })
   }, [platform, settings, patchSettings])
 
+  /**
+   * Writes a document to disk. Asks first when the file was changed outside Valence since it
+   * was opened or last saved (saving used to overwrite those changes silently), and reports a
+   * failed write instead of leaving it as an unhandled error. True when written.
+   */
+  const writeDocument = useCallback(
+    async (doc: Session['documents'][number], target: string): Promise<boolean> => {
+      const name = basenameOf(target)
+      if (doc.path && target === doc.path) {
+        let disk: string | null = null
+        try {
+          if (await platform.fs.exists(target)) disk = await platform.fs.read(target)
+        } catch {
+          disk = null
+        }
+        if (changedOnDisk(doc, disk)) {
+          const overwrite = await platform.dialog.confirm(
+            `${name} was changed outside Valence`,
+            'It changed on disk after you opened or last saved it. Saving replaces those changes with your version.',
+            'Save my version',
+          )
+          if (!overwrite) return false
+        }
+      }
+      try {
+        await platform.fs.write(target, doc.source)
+        return true
+      } catch (e) {
+        notify(`Could not save ${name}: ${e instanceof Error ? e.message : String(e)}`, 'error')
+        return false
+      }
+    },
+    [platform, notify],
+  )
+
+  /**
+   * Notices when the open document changes on disk (another editor, git, a sync tool). An
+   * unedited document reloads; an edited one keeps the edits, and saving asks before replacing
+   * the file. Valence's own saves are recognised and ignored.
+   */
+  const onDiskChange = useCallback(
+    async (id: string, path: string) => {
+      flushEditor()
+      const before = byId(sessionRef.current, id)
+      if (!before) return
+      let text: string
+      try {
+        text = await platform.fs.read(path)
+      } catch {
+        return // removed or unreadable for the moment; saving recreates it
+      }
+      const d = byId(sessionRef.current, id)
+      if (!d || d.path !== path || text === d.saved || text === d.source) return
+      const name = basenameOf(path)
+      if (isDirty(d)) {
+        notify(`${name} changed on disk. Your unsaved changes are kept; saving will ask before replacing the file.`, 'error')
+        return
+      }
+      // Reload: clearing loadedFor makes the editor take the new text.
+      if (loadedFor.current === id) loadedFor.current = ''
+      sessionRef.current = updateDoc(sessionRef.current, id, { source: text, saved: text })
+      setSession((s) => (byId(s, id) ? updateDoc(s, id, { source: text, saved: text }) : s))
+      notify(`${name} changed on disk and was reloaded.`)
+    },
+    [platform, notify, flushEditor],
+  )
+
+  useEffect(() => {
+    const id = doc?.id
+    const path = doc?.path
+    if (!id || !path) return
+    let stop: (() => void) | null = null
+    let disposed = false
+    void platform.fs
+      .watch(path, () => void onDiskChange(id, path))
+      .then((off) => {
+        if (disposed) off()
+        else stop = off
+      })
+      .catch(() => {})
+    return () => {
+      disposed = true
+      stop?.()
+    }
+  }, [platform, doc?.id, doc?.path, onDiskChange])
+
   const save = useCallback(async () => {
-    const current = activeDoc(session)
+    flushEditor()
+    const current = activeDoc(sessionRef.current)
     if (!current) return
 
     let target = current.path
@@ -839,14 +993,14 @@ useEffect(() => {
       target = await platform.dialog.save(suggested)
       if (!target) return
     }
-    await platform.fs.write(target, current.source)
+    if (!(await writeDocument(current, target))) return
     // Snapshots live beside the note, so they travel with it. Fire and forget: a history
     // capture must never turn a successful save into a failure.
     void saveSnapshot(target, current.source).catch(() => {})
     setSession((s) => markSaved(s, current.id, target!))
     platform.window.setDirty(false)
     platform.window.setTitle(`${basenameOf(target)} — Valence`)
-  }, [platform, session])
+  }, [platform, writeDocument, flushEditor])
 
   /**
  * Resolve a document with unsaved changes into "may I close it".
@@ -864,30 +1018,24 @@ const resolveUnsaved = useCallback(
 
     const target = doc.path ?? (await platform.dialog.save(`${slug(titleOf(doc.source))}.md`))
     if (!target) return false
-    try {
-      await platform.fs.write(target, doc.source)
-    } catch {
-      await platform.dialog.confirm(
-        'Could not save',
-        'That file could not be written. The document is still open and unsaved.',
-      )
-      return false
-    }
+    // writeDocument reports a failure itself; the document stays open with its changes.
+    if (!(await writeDocument(doc, target))) return false
     setSession((s) => markSaved(s, doc.id, target))
     platform.window.setDirty(false)
     return true
   },
-  [platform],
+  [platform, writeDocument],
 )
 
 const closeTab = useCallback(
     async (id: string) => {
-      const target = byId(session, id)
+      flushEditor()
+      const target = byId(sessionRef.current, id)
       if (!target) return
       if (isDirty(target) && !(await resolveUnsaved(target))) return
       setSession((s) => closeDoc(s, id))
     },
-    [resolveUnsaved, session],
+    [resolveUnsaved, flushEditor],
   )
 
   /**
@@ -901,25 +1049,30 @@ const closeTab = useCallback(
 useEffect(
   () =>
     platform.window.onCloseGuard(async () => {
-      for (const doc of session.documents) {
+      flushEditor()
+      for (const doc of sessionRef.current.documents) {
         if (!isDirty(doc)) continue
         if (!(await resolveUnsaved(doc))) return false
       }
       return true
     }),
-  [platform, resolveUnsaved, session.documents],
+  [platform, resolveUnsaved, flushEditor],
 )
 
 const saveAll = useCallback(async () => {
-    for (const d of session.documents) {
+    flushEditor()
+    let allSaved = true
+    for (const d of sessionRef.current.documents) {
       if (!isDirty(d)) continue
       const target = d.path ?? (await platform.dialog.save(`${slug(titleOf(d.source))}.md`))
-      if (!target) continue
-      await platform.fs.write(target, d.source)
+      if (!target || !(await writeDocument(d, target))) {
+        allSaved = false
+        continue
+      }
       setSession((s) => markSaved(s, d.id, target))
     }
-    platform.window.setDirty(false)
-  }, [platform, session.documents])
+    if (allSaved) platform.window.setDirty(false)
+  }, [platform, writeDocument, flushEditor])
 
   /* ── Menu, shortcuts, persistence ──────────────────────────── */
 
@@ -1165,6 +1318,12 @@ const saveAll = useCallback(async () => {
     return () => window.removeEventListener('keydown', onKey)
   }, [runCommand, paletteOpen])
 
+  // Keep a copy of unsaved edits in the app's data folder, so a crash doesn't lose them.
+  useEffect(() => {
+    const t = setTimeout(() => void saveDrafts(session), 1000)
+    return () => clearTimeout(t)
+  }, [session])
+
   // Persist the session when it changes and nothing is dirty.
   useEffect(() => {
     if (!settings) return
@@ -1355,7 +1514,7 @@ const saveAll = useCallback(async () => {
                   <ResizeDivider label="Resize editor and preview" value={splitPercent} min={20} max={80} step={2} onChange={setSplitPercent} unitsPerPixel={() => 100 / Math.max(1, (splitRef.current?.clientWidth ?? 6) - 6)} />
                   {/* Content comes from our own render pipeline over the user's own file. */}
                   <div className="min-w-0 overflow-y-auto">
-                  <div className="read-surface" dangerouslySetInnerHTML={{ __html: readHtml }} />
+                  <div className="read-surface" onClick={onPreviewClick} dangerouslySetInnerHTML={{ __html: readHtml }} />
                   {readError && (
                     <p className="read-error" role="status">
                       The preview could not be rendered: {readError}

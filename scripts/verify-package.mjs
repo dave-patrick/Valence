@@ -22,7 +22,7 @@
  * Exits non-zero if the app does not come up correctly, so it can gate a release.
  */
 
-import { spawn } from 'node:child_process'
+import { spawn, spawnSync } from 'node:child_process'
 import { createServer } from 'node:net'
 import { rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -188,6 +188,11 @@ async function evaluate(expression) {
   return res.result?.result?.value
 }
 
+// A locked or non-interactive Windows session has no clipboard for any program; the clipboard
+// check is skipped there rather than failing the build for the machine's state.
+const clipboardUsable = process.platform !== 'win32' ||
+  spawnSync('powershell', ['-NoProfile', '-Command', "Set-Clipboard -Value 'valence-probe'; if ((Get-Clipboard -Raw) -ne 'valence-probe') { exit 1 }"], { stdio: 'ignore' }).status === 0
+
 const checks = {
   'window opens': `${'ok'} ${page.title}`,
   'react mounted': await evaluate(`(() => { const r = document.getElementById('root'); return !r || r.children.length > 0 })()`),
@@ -214,7 +219,7 @@ const checks = {
     // this way: the renderer never called anything, so nothing failed, and closing the window
     // discarded unsaved work. Naming the API turns a drift into a visible failure.
     const required = {
-      fs: ['read', 'write', 'writeBinary', 'stat', 'exists', 'listDir', 'watch', 'unwatch', 'reveal'],
+      fs: ['read', 'write', 'writeBinary', 'stat', 'exists', 'listDir', 'watch', 'unwatch', 'onChanged', 'reveal'],
       win: ['setTitle', 'setDirty', 'registerCloseGuard', 'onCloseRequested', 'answerClose', 'pendingFiles', 'onOpenFiles'],
       dialog: ['openFile', 'openFolder', 'save', 'confirm', 'unsaved'],
       menu: ['build', 'onCommand'],
@@ -230,6 +235,35 @@ const checks = {
     }
     return missing.length ? 'missing: ' + missing.join(', ') : true
   })()`),
+
+  // The house fonts ship with the app; they used to come from Google Fonts at every start.
+  'bundled fonts load': await evaluate(`(async () => {
+    const faces = await document.fonts.load('16px "Source Sans 3"')
+    return faces.length > 0 || 'Source Sans 3 did not load'
+  })()`),
+  // Copy as Markdown / HTML / plain text used to send the text back to the renderer on a channel
+  // nothing listened to, so it never reached the clipboard.
+  'clipboard round-trips text': !clipboardUsable ? 'ok (skipped: the system clipboard is unavailable in this session)' : await evaluate(`(async () => {
+    if (!window.valence) return 'no bridge'
+    try {
+      await window.valence.clip.writeText('valence-clipboard-check')
+      const back = await window.valence.clip.read()
+      return back.text === 'valence-clipboard-check' || 'read back: ' + JSON.stringify(back.text)
+    } catch (e) { return 'threw: ' + e.message }
+  })()`),
+  // A link must never replace the app: whatever loads in this window gets the file bridge.
+  // One link at a time: a later click would cancel an earlier navigation still in flight.
+  'links do not navigate the window away': await (async () => {
+    // Files Valence doesn't open (a .ini or .txt would rightly open as a tab instead).
+    for (const href of ['file:///etc/hosts', 'file:///C:/Windows/System32/notepad.exe', 'https://example.com/']) {
+      const before = await evaluate('location.href')
+      await evaluate(`(() => { const a = document.createElement('a'); a.href = ${JSON.stringify(href)}; document.body.append(a); a.click(); a.remove(); return true })()`)
+      await sleep(1500)
+      const after = await evaluate('location.href')
+      if (after !== before) return `clicking ${href} took the window to ${typeof after === 'string' ? after : JSON.stringify(after)}`
+    }
+    return true
+  })(),
 
   'local chunks resolve': await evaluate(`(async () => {
     const urls = [...document.querySelectorAll('script[src], link[href]')]

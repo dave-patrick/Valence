@@ -90,14 +90,22 @@ describe('packaged payload', () => {
 describe('preload is reachable from main', () => {
   const pkg = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8'))
 
-  it('names the extension electron-vite actually emits', () => {
-    // With "type": "module", electron-vite writes the ESM bundle as index.js. Asking for
-    // index.mjs is what shipped: main looked for a file that does not exist, Electron logged
-    // "Unable to load preload script" once, and the context bridge never ran. The editor
-    // still opened, so the failure presented as "the app works" with every disk feature
-    // silently dead.
-    const expected = pkg.type === 'module' ? 'index.js' : 'index.mjs'
-    expect(preloadFilename).toBe(expected)
+  it('names the file electron-vite is configured to emit', () => {
+    // Asking for a file the build doesn't write is what once shipped: main looked for
+    // index.mjs, Electron logged "Unable to load preload script" once, and the context bridge
+    // never ran. The editor still opened, so the failure presented as "the app works" with
+    // every disk feature silently dead. The preload is now CommonJS (the sandboxed window
+    // runs only CommonJS preloads), written as index.cjs.
+    void pkg
+    const config = readFileSync(join(ROOT, 'electron.vite.config.ts'), 'utf8')
+    expect(config).toContain(`entryFileNames: '${preloadFilename}'`)
+    expect(preloadFilename).toBe('index.cjs')
+  })
+
+  it('the main window is sandboxed', () => {
+    const main = readFileSync(join(ROOT, 'src', 'main', 'index.ts'), 'utf8')
+    expect(main).toContain('sandbox: true')
+    expect(main).not.toContain('sandbox: false')
   })
 
   it('resolves out/main -> out/preload', () => {
@@ -144,7 +152,7 @@ describe('built output', () => {
   // Skipped when there is nothing built; CI builds after tests, so this only bites locally.
   const targets = [
     ['out/main/index.js', join(ROOT, 'out', 'main', 'index.js')],
-    ['out/preload/index.js', join(ROOT, 'out', 'preload', 'index.js')],
+    ['out/preload/index.cjs', join(ROOT, 'out', 'preload', 'index.cjs')],
   ] as const
 
   for (const [label, path] of targets) {

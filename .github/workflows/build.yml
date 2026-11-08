@@ -1,9 +1,13 @@
 name: Build and release
 
 on:
+  # Every push to main and every pull request is built, tested and launched; only a v* tag
+  # publishes (the release job below is limited to tags). Tests used to run only when tagging.
   push:
+    branches: [main]
     tags:
       - 'v*'
+  pull_request:
   workflow_dispatch:
 
 permissions:
