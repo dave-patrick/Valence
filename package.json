@@ -1,7 +1,7 @@
 {
   "name": "valence",
   "version": "0.2.4",
-  "buildId": "2026.07.11.11",
+  "buildId": "2026.11.11.17",
   "private": true,
   "description": "Valence - a local-first Markdown editor. Typora seamless reading, MarkText editor depth, modernised.",
   "author": "Dave Patrick <dave-patrick@users.noreply.github.com>",
@@ -20,6 +20,9 @@
     "build:mac": "electron-vite build && electron-builder --mac --publish never",
     "build:linux": "electron-vite build && electron-builder --linux --publish never",
     "verify:package": "node scripts/verify-package.mjs",
+    "verify:outline": "node scripts/verify-outline.mjs",
+    "verify:find": "node scripts/verify-find.mjs",
+    "verify:scrolling": "node scripts/verify-scrolling.mjs",
     "stage": "node scripts/stage-release.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run"
@@ -60,7 +63,7 @@
     "vitest": "^5.0.5"
   },
   "build": {
-    "artifactName": "Valence-${version}-build-2026.07.11.11-${os}-${arch}.${ext}",
+    "artifactName": "Valence-${version}-build-2026.11.11.17-${os}-${arch}.${ext}",
     "appId": "dev.valence.editor",
     "productName": "Valence",
     "directories": {

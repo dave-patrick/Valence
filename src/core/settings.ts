@@ -1,3 +1,4 @@
+import { DEFAULT_LOOK, normaliseLook, type Look } from './look'
 /**
  * Application settings.
  *
@@ -14,7 +15,10 @@ import { normaliseHex } from './theme'
 export interface Settings {
   /** Where the tab bar sits. `hidden` is a real option — some people want one document
    *  at a time and no evidence of the machinery. */
+  look: Look
   tabBar: TabBarPosition
+  /** Dock only the document outline; Files and Search remain on the left. */
+  outlineSide: 'left' | 'right'
   /** Base mode: system / light / dark. 'system' follows the OS preference. */
   theme: ThemePreference
   /** Theme id (from src/core/theme.ts THEMES). 'house' is the house colour scheme. */
@@ -53,7 +57,9 @@ export interface Settings {
 }
 
 export const DEFAULT_SETTINGS: Settings = {
+  look: { ...DEFAULT_LOOK },
   tabBar: 'top',
+  outlineSide: 'left',
   theme: 'system',
   themeId: 'house',
   accentColor: '#78b6ff',
@@ -87,7 +93,9 @@ export function normaliseSettings(input: unknown): Settings {
   const raw = input as Record<string, unknown>
 
   return {
+    look: normaliseLook(raw['look']),
     tabBar: oneOf(raw['tabBar'], ['top', 'bottom', 'left', 'right', 'hidden'], DEFAULT_SETTINGS.tabBar),
+    outlineSide: oneOf(raw['outlineSide'], ['left', 'right'], DEFAULT_SETTINGS.outlineSide),
     theme: oneOf(raw['theme'], ['system', 'light', 'dark'], DEFAULT_SETTINGS.theme),
     themeId: str(raw['themeId']) || DEFAULT_SETTINGS.themeId,
     accentColor: normaliseHex(str(raw['accentColor'])),

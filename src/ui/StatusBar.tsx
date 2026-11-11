@@ -37,8 +37,8 @@ export function StatusBar({
 }: StatusBarProps) {
   return (
     <footer
-      className="flex shrink-0 items-center gap-4 px-3 text-[11.5px]"
-      style={{ height: 'var(--status)', background: 'var(--surface)', borderTop: '1px solid var(--rule)' }}
+      className="valence-status flex shrink-0 items-center gap-4 px-3 text-[11.5px]"
+      style={{ height: 'var(--status)', background: 'var(--statusbar-bg)' }}
     >
       <span className="truncate" style={{ color: 'var(--ink-3)' }} title={path ?? undefined}>
         {path ? basename(path) : 'Untitled'}

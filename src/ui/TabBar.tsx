@@ -1,9 +1,9 @@
+import { AppearancePanel } from './AppearancePanel'
 import { useEffect, useRef, useState } from 'react'
 import { buildId } from '../../package.json'
 import type { DocumentState, Session } from '@core/session'
 import { isDirty, tabLabel } from '@core/session'
 import type { TabBarPosition } from '@core/settings'
-import { DEFAULT_THEME_STATE, getTheme, resolveCSSVars, normaliseHex, THEMES, type Theme } from '@core/theme'
 
 interface TabBarProps {
   session: Session
@@ -287,23 +287,7 @@ function SettingsFields({
             ]}
           />
         </Field>
-        <Field label="Theme" hint="Follows the system by default">
-          <Segmented
-            value={settings.theme}
-            onChange={(v) => onChange({ theme: v })}
-            options={[
-              { value: 'system', label: 'System' },
-              { value: 'light', label: 'Light' },
-              { value: 'dark', label: 'Dark' },
-            ]}
-          />
-        </Field>
-
-        <ThemeGallery
-          themeId={settings.themeId}
-          accentColor={settings.accentColor}
-          onChange={(patch) => onChange(patch)}
-        />
+        <AppearancePanel settings={settings} onChange={onChange} />
       </section>
 
       <section>
@@ -550,71 +534,5 @@ function Segmented<T extends string>({
     </div>
   )
 }
-
-function ThemeGallery({
-  themeId,
-  accentColor,
-  onChange,
-}: {
-  themeId: string
-  accentColor: string
-  onChange: (patch: Partial<{ themeId: string; accentColor: string }>) => void
-}) {
-  return (
-    <>
-      <Field label="Theme" hint="Colour palette">
-        <div className="valence-theme-gallery">
-          {THEMES.map((t) => (
-            <button
-              key={t.id}
-              onClick={() => onChange({ themeId: t.id })}
-              className={`valence-theme-card${themeId === t.id ? ' valence-theme-card--selected' : ''}`}
-              aria-label={t.name}
-              title={t.name}
-            >
-              <div className="valence-theme-swatch valence-theme-swatch--dark" style={{ background: t.dark.bg }} />
-              <div className="valence-theme-swatch valence-theme-swatch--light" style={{ background: t.light.bg }} />
-              <span className="valence-theme-name">{t.name}</span>
-            </button>
-          ))}
-        </div>
-      </Field>
-
-      <Field label="Accent colour" hint="Accent used for highlights and focus rings">
-        <div className="valence-accent-picker">
-          {ACCENT_SWATCHES.map((c) => (
-            <button
-              key={c}
-              onClick={() => onChange({ accentColor: c })}
-              className={`valence-accent-swatch${accentColor === c ? ' valence-accent-swatch--selected' : ''}`}
-              style={{ backgroundColor: c }}
-              aria-label={c}
-              title={c}
-            />
-          ))}
-          <div className="valence-accent-custom">
-            <input
-              type="color"
-              value={accentColor}
-              onChange={(e) => onChange({ accentColor: normaliseHex(e.target.value) })}
-              aria-label="Custom accent colour"
-            />
-          </div>
-        </div>
-      </Field>
-    </>
-  )
-}
-
-const ACCENT_SWATCHES: string[] = [
-  '#78b6ff',
-  '#1f6fd1',
-  '#ff7b7b',
-  '#f4b35e',
-  '#7fd8a6',
-  '#c43a3a',
-  '#9a6a00',
-  '#1f8a55',
-]
 
 export type { DocumentState }

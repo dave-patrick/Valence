@@ -71,6 +71,7 @@ export interface Platform {
   }
 
   window: {
+    setAppearance?(background: string, foreground: string): void
     setTitle(title: string): void
     setDirty(dirty: boolean): void
     /** Register a guard invoked on close when dirty. Returns an unsubscribe fn. */

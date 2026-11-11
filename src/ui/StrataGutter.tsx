@@ -52,9 +52,10 @@ export function StrataGutter({ headings, active, onNavigate }: StrataGutterProps
     <div
       role="navigation"
       aria-label="Document position"
-      className="flex shrink-0 flex-col items-end justify-center gap-1.5 py-8 pr-2"
-      style={{ width: 30 }}
+      className="flex min-h-0 shrink-0 flex-col overflow-x-hidden overflow-y-auto py-8 pr-2"
+      style={{ width: 30, scrollbarWidth: 'none' }}
     >
+      <div className="my-auto flex shrink-0 flex-col items-end gap-1.5">
       {geometry.map((shell, i) => {
         const isActive = i === activeIndex
         const isPast = activeIndex > -1 && i < activeIndex
@@ -94,6 +95,7 @@ export function StrataGutter({ headings, active, onNavigate }: StrataGutterProps
           </button>
         )
       })}
+      </div>
       <span className="sr-only">
         {geometry.length} headings, deepest level {deepest}
         {activeIndex > -1 ? `. Currently in section ${active}` : ''}

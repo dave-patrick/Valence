@@ -34,8 +34,8 @@ export function Rail({ panel, onSelect, onSettings }: RailProps) {
   return (
     <nav
       aria-label="Panels"
-      className="flex shrink-0 flex-col items-center gap-1 py-3"
-      style={{ width: 'var(--rail)', background: 'var(--surface)', borderRight: '1px solid var(--rule)' }}
+      className="valence-rail flex shrink-0 flex-col items-center gap-1 py-2"
+      style={{ width: 'var(--rail)', background: 'var(--sidebar-bg)' }}
     >
 {ITEMS.map((item) => {
         const active = panel === item.id

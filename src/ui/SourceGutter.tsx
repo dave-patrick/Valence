@@ -45,13 +45,13 @@ export function SourceGutter({ text, textareaRef, visible }: SourceGutterProps) 
     <div
       ref={gutterRef}
       aria-hidden="true"
-      className="shrink-0 select-none overflow-hidden pt-[3.5rem] text-right"
-      style={{ width: '2.5rem', paddingRight: '0.75rem' }}
+      className="valence-source-gutter shrink-0 select-none overflow-hidden text-right"
+      style={{ width: '2.5rem', paddingRight: '0.75rem', paddingTop: 'var(--editor-top)', fontSize: 'var(--source-size)' }}
     >
       {Array.from({ length: count }, (_, i) => (
         <div
           key={i}
-          className="font-mono text-[0.78em] leading-[1.65] text-[var(--text-faint)]"
+          className="font-mono text-[1em] leading-[1.62] text-[var(--text-faint)]"
           style={{ fontVariantNumeric: 'tabular-nums' }}
         >
           {i + 1}

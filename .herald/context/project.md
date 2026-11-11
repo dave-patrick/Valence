@@ -13,7 +13,7 @@ Valence - a local-first Markdown editor. Typora seamless reading, MarkText edito
 ## Conventions
 
 - Stage Windows builds at `C:\Users\davem\Apps\Valence`, the application's canonical executable location. Do not silently use another staging folder when this destination is locked.
-- Increment the semantic version for each new build, alongside the separate `YYYY.DD.MM.revision` build ID (Phoenix date, monotonic revision). Retries and platform variants of one build share its ID.
+- Change the semantic version only when requested; increment the separate `YYYY.DD.MM.revision` build ID (Phoenix date, monotonic revision). Retries and platform variants of one build share its ID.
 
 - Document extensions are defined in `src/shared/fileTypes.ts` for file discovery and pickers. Non-Markdown documents stay in the raw text editor and bypass Markdown conversion.
 - Outline navigation uses source offsets for text and schema-parsed prefix heading counts for the rich editor; DOM heading IDs are not required.
@@ -23,3 +23,7 @@ Valence - a local-first Markdown editor. Typora seamless reading, MarkText edito
 - Keep this context accurate as project architecture and conventions are established.
 - Herald compiler output replaces vendor files. Preserve and merge existing guidance before compiling.
 - Pane resizing uses the controlled ResizeDivider/ResizablePane UI components. Widths live in App state for the session; pointer movement uses deltas and side-aware direction. Keep inspector visibility and its divider together.
+- Keep vertical scrolling inside the editor/preview panes and the height-constrained Sidebar body. Outline docking uses the persisted outlineSide setting; Files/Search stay left and Outline can move right with its divider on the inward edge. The heading-position navigation must remain height-constrained and keep its first and last controls reachable for documents with many headings; the outer workspace only scrolls horizontally.
+- Active-document Find/Replace uses literal UTF-16 ranges. Rich replacements are isolated ProseMirror history transactions; Source replacements and typing use document-scoped delta history, with grouped IME composition and the existing line-ending-preserving input path. Ctrl+F finds, Ctrl+H replaces, and Ctrl+Alt+H opens history.
+
+- Appearance uses the adapted Quantos Look model in src/core/look.ts, normalized in Settings. resolveAppearance combines legacy palettes with derived and explicit colors. Clear removed root CSS properties; keep header/sidebar/editor/status backgrounds themed. Windows native overlay colors follow the header through validated win:appearance IPC. Workspace spacing and typography are persisted separately from documents.

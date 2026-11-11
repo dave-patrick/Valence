@@ -1,3 +1,4 @@
+import { baseOf, BUILTIN_DARK, BUILTIN_LIGHT, lookVars, type Look } from './look'
 /**
  * Theme definitions.
  *
@@ -419,4 +420,23 @@ export function normaliseHex(value: string): string {
   const m2 = value.match(/^#?([0-9a-f]{6})$/i)
   if (m2) return `#${m2[1]}`.toLowerCase()
   return DEFAULT_THEME_STATE.accent
+}
+
+export function resolveAppearance(themeId: string, mode: 'dark' | 'light', accent: string, look: Look): Record<string,string> {
+ const base = baseOf(look,mode);
+ const palette = resolveCSSVars(getTheme(themeId) ? themeId : 'house',base,accent);
+ const fallback = themeId === 'house' ? {...palette,...(base === 'light' ? BUILTIN_LIGHT : BUILTIN_DARK),'--accent':accent} : palette;
+ const derived = lookVars({...look, accent: look.accent ?? accent},base,fallback);
+ const vars = {...fallback,...derived};
+ if (look.bg) {
+   if (!look.sidebarBg) vars['--sidebar-bg'] = derived['--bg-panel'];
+   if (!look.headerBg) vars['--header-bg'] = derived['--bg-raised'];
+   if (!look.statusbarBg) vars['--statusbar-bg'] = derived['--bg-raised'];
+   if (!look.editorBg) vars['--editor-bg'] = derived['--bg-panel'];
+ }
+ return {...vars,
+ '--sidebar-bg':vars['--sidebar-bg'] ?? vars['--bg-panel'], '--header-bg':vars['--header-bg'] ?? vars['--bg-raised'],
+ '--statusbar-bg':vars['--statusbar-bg'] ?? vars['--bg-raised'], '--editor-bg':vars['--editor-bg'] ?? vars['--bg-panel'],
+ '--font-editor':vars['--font-editor'] ?? vars['--font-body'] ?? "'Source Sans 3', sans-serif",
+ '--ui-scale':String(look.scale),'--workspace-gap':look.spacing+'px','--editor-size':look.editorSize+'px','--editor-width':look.editorWidth+'ch'};
 }

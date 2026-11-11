@@ -1,0 +1,523 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-11T17:58:44.083Z",
+  "title": "Design System: Valence",
+  "extensions": {
+    "colorMeta": {
+      "dark-canvas": {
+        "role": "neutral",
+        "displayName": "dark canvas",
+        "tonalRamp": [
+          "oklch(15% 0.0145 165.3)",
+          "oklch(26% 0.0145 165.3)",
+          "oklch(38% 0.0145 165.3)",
+          "oklch(49% 0.0145 165.3)",
+          "oklch(61% 0.0145 165.3)",
+          "oklch(72% 0.0145 165.3)",
+          "oklch(84% 0.0145 165.3)",
+          "oklch(95% 0.0145 165.3)"
+        ]
+      },
+      "dark-panel": {
+        "role": "neutral",
+        "displayName": "dark panel",
+        "tonalRamp": [
+          "oklch(15% 0.0151 165.3)",
+          "oklch(26% 0.0151 165.3)",
+          "oklch(38% 0.0151 165.3)",
+          "oklch(49% 0.0151 165.3)",
+          "oklch(61% 0.0151 165.3)",
+          "oklch(72% 0.0151 165.3)",
+          "oklch(84% 0.0151 165.3)",
+          "oklch(95% 0.0151 165.3)"
+        ]
+      },
+      "dark-raised": {
+        "role": "neutral",
+        "displayName": "dark raised",
+        "tonalRamp": [
+          "oklch(15% 0.0148 165.3)",
+          "oklch(26% 0.0148 165.3)",
+          "oklch(38% 0.0148 165.3)",
+          "oklch(49% 0.0148 165.3)",
+          "oklch(61% 0.0148 165.3)",
+          "oklch(72% 0.0148 165.3)",
+          "oklch(84% 0.0148 165.3)",
+          "oklch(95% 0.0148 165.3)"
+        ]
+      },
+      "dark-input": {
+        "role": "neutral",
+        "displayName": "dark input",
+        "tonalRamp": [
+          "oklch(15% 0.0155 165.3)",
+          "oklch(26% 0.0155 165.3)",
+          "oklch(38% 0.0155 165.3)",
+          "oklch(49% 0.0155 165.3)",
+          "oklch(61% 0.0155 165.3)",
+          "oklch(72% 0.0155 165.3)",
+          "oklch(84% 0.0155 165.3)",
+          "oklch(95% 0.0155 165.3)"
+        ]
+      },
+      "dark-hover": {
+        "role": "neutral",
+        "displayName": "dark hover",
+        "tonalRamp": [
+          "oklch(15% 0.0143 165.3)",
+          "oklch(26% 0.0143 165.3)",
+          "oklch(38% 0.0143 165.3)",
+          "oklch(49% 0.0143 165.3)",
+          "oklch(61% 0.0143 165.3)",
+          "oklch(72% 0.0143 165.3)",
+          "oklch(84% 0.0143 165.3)",
+          "oklch(95% 0.0143 165.3)"
+        ]
+      },
+      "dark-active": {
+        "role": "neutral",
+        "displayName": "dark active",
+        "tonalRamp": [
+          "oklch(15% 0.0139 165.3)",
+          "oklch(26% 0.0139 165.3)",
+          "oklch(38% 0.0139 165.3)",
+          "oklch(49% 0.0139 165.3)",
+          "oklch(61% 0.0139 165.3)",
+          "oklch(72% 0.0139 165.3)",
+          "oklch(84% 0.0139 165.3)",
+          "oklch(95% 0.0139 165.3)"
+        ]
+      },
+      "dark-selection": {
+        "role": "neutral",
+        "displayName": "dark selection",
+        "tonalRamp": [
+          "oklch(15% 0.2907 166.3)",
+          "oklch(26% 0.2907 166.3)",
+          "oklch(38% 0.2907 166.3)",
+          "oklch(49% 0.2907 166.3)",
+          "oklch(61% 0.2907 166.3)",
+          "oklch(72% 0.2907 166.3)",
+          "oklch(84% 0.2907 166.3)",
+          "oklch(95% 0.2907 166.3)"
+        ]
+      },
+      "dark-line": {
+        "role": "neutral",
+        "displayName": "dark line",
+        "tonalRamp": [
+          "oklch(15% 0.0136 165.3)",
+          "oklch(26% 0.0136 165.3)",
+          "oklch(38% 0.0136 165.3)",
+          "oklch(49% 0.0136 165.3)",
+          "oklch(61% 0.0136 165.3)",
+          "oklch(72% 0.0136 165.3)",
+          "oklch(84% 0.0136 165.3)",
+          "oklch(95% 0.0136 165.3)"
+        ]
+      },
+      "dark-line-strong": {
+        "role": "neutral",
+        "displayName": "dark line strong",
+        "tonalRamp": [
+          "oklch(15% 0.0131 165.3)",
+          "oklch(26% 0.0131 165.3)",
+          "oklch(38% 0.0131 165.3)",
+          "oklch(49% 0.0131 165.3)",
+          "oklch(61% 0.0131 165.3)",
+          "oklch(72% 0.0131 165.3)",
+          "oklch(84% 0.0131 165.3)",
+          "oklch(95% 0.0131 165.3)"
+        ]
+      },
+      "dark-text": {
+        "role": "neutral",
+        "displayName": "dark text",
+        "tonalRamp": [
+          "oklch(15% 0.0452 165.6)",
+          "oklch(26% 0.0452 165.6)",
+          "oklch(38% 0.0452 165.6)",
+          "oklch(49% 0.0452 165.6)",
+          "oklch(61% 0.0452 165.6)",
+          "oklch(72% 0.0452 165.6)",
+          "oklch(84% 0.0452 165.6)",
+          "oklch(95% 0.0452 165.6)"
+        ]
+      },
+      "dark-text-soft": {
+        "role": "neutral",
+        "displayName": "dark text soft",
+        "tonalRamp": [
+          "oklch(15% 0.0908 165.9)",
+          "oklch(26% 0.0908 165.9)",
+          "oklch(38% 0.0908 165.9)",
+          "oklch(49% 0.0908 165.9)",
+          "oklch(61% 0.0908 165.9)",
+          "oklch(72% 0.0908 165.9)",
+          "oklch(84% 0.0908 165.9)",
+          "oklch(95% 0.0908 165.9)"
+        ]
+      },
+      "dark-text-muted": {
+        "role": "neutral",
+        "displayName": "dark text muted",
+        "tonalRamp": [
+          "oklch(15% 0.1396 166.0)",
+          "oklch(26% 0.1396 166.0)",
+          "oklch(38% 0.1396 166.0)",
+          "oklch(49% 0.1396 166.0)",
+          "oklch(61% 0.1396 166.0)",
+          "oklch(72% 0.1396 166.0)",
+          "oklch(84% 0.1396 166.0)",
+          "oklch(95% 0.1396 166.0)"
+        ]
+      },
+      "dark-text-faint": {
+        "role": "neutral",
+        "displayName": "dark text faint",
+        "tonalRamp": [
+          "oklch(15% 0.1456 165.8)",
+          "oklch(26% 0.1456 165.8)",
+          "oklch(38% 0.1456 165.8)",
+          "oklch(49% 0.1456 165.8)",
+          "oklch(61% 0.1456 165.8)",
+          "oklch(72% 0.1456 165.8)",
+          "oklch(84% 0.1456 165.8)",
+          "oklch(95% 0.1456 165.8)"
+        ]
+      },
+      "dark-accent": {
+        "role": "primary",
+        "displayName": "dark accent",
+        "tonalRamp": [
+          "oklch(15% 0.4660 166.1)",
+          "oklch(26% 0.4660 166.1)",
+          "oklch(38% 0.4660 166.1)",
+          "oklch(49% 0.4660 166.1)",
+          "oklch(61% 0.4660 166.1)",
+          "oklch(72% 0.4660 166.1)",
+          "oklch(84% 0.4660 166.1)",
+          "oklch(95% 0.4660 166.1)"
+        ]
+      },
+      "dark-accent-ink": {
+        "role": "primary",
+        "displayName": "dark accent ink",
+        "tonalRamp": [
+          "oklch(15% 0.1226 165.8)",
+          "oklch(26% 0.1226 165.8)",
+          "oklch(38% 0.1226 165.8)",
+          "oklch(49% 0.1226 165.8)",
+          "oklch(61% 0.1226 165.8)",
+          "oklch(72% 0.1226 165.8)",
+          "oklch(84% 0.1226 165.8)",
+          "oklch(95% 0.1226 165.8)"
+        ]
+      },
+      "dark-accent-wash": {
+        "role": "primary",
+        "displayName": "dark accent wash",
+        "tonalRamp": [
+          "oklch(15% 0.1698 165.8)",
+          "oklch(26% 0.1698 165.8)",
+          "oklch(38% 0.1698 165.8)",
+          "oklch(49% 0.1698 165.8)",
+          "oklch(61% 0.1698 165.8)",
+          "oklch(72% 0.1698 165.8)",
+          "oklch(84% 0.1698 165.8)",
+          "oklch(95% 0.1698 165.8)"
+        ]
+      },
+      "light-canvas": {
+        "role": "neutral",
+        "displayName": "light canvas",
+        "tonalRamp": [
+          "oklch(15% 0.0214 165.3)",
+          "oklch(26% 0.0214 165.3)",
+          "oklch(38% 0.0214 165.3)",
+          "oklch(49% 0.0214 165.3)",
+          "oklch(61% 0.0214 165.3)",
+          "oklch(72% 0.0214 165.3)",
+          "oklch(84% 0.0214 165.3)",
+          "oklch(95% 0.0214 165.3)"
+        ]
+      },
+      "light-panel": {
+        "role": "neutral",
+        "displayName": "light panel",
+        "tonalRamp": [
+          "oklch(15% 0.0344 165.7)",
+          "oklch(26% 0.0344 165.7)",
+          "oklch(38% 0.0344 165.7)",
+          "oklch(49% 0.0344 165.7)",
+          "oklch(61% 0.0344 165.7)",
+          "oklch(72% 0.0344 165.7)",
+          "oklch(84% 0.0344 165.7)",
+          "oklch(95% 0.0344 165.7)"
+        ]
+      },
+      "light-raised": {
+        "role": "neutral",
+        "displayName": "light raised",
+        "tonalRamp": [
+          "oklch(15% 0.0000 90.0)",
+          "oklch(26% 0.0000 90.0)",
+          "oklch(38% 0.0000 90.0)",
+          "oklch(49% 0.0000 90.0)",
+          "oklch(61% 0.0000 90.0)",
+          "oklch(72% 0.0000 90.0)",
+          "oklch(84% 0.0000 90.0)",
+          "oklch(95% 0.0000 90.0)"
+        ]
+      },
+      "light-hover": {
+        "role": "neutral",
+        "displayName": "light hover",
+        "tonalRamp": [
+          "oklch(15% 0.0519 165.7)",
+          "oklch(26% 0.0519 165.7)",
+          "oklch(38% 0.0519 165.7)",
+          "oklch(49% 0.0519 165.7)",
+          "oklch(61% 0.0519 165.7)",
+          "oklch(72% 0.0519 165.7)",
+          "oklch(84% 0.0519 165.7)",
+          "oklch(95% 0.0519 165.7)"
+        ]
+      },
+      "light-active": {
+        "role": "neutral",
+        "displayName": "light active",
+        "tonalRamp": [
+          "oklch(15% 0.0848 166.0)",
+          "oklch(26% 0.0848 166.0)",
+          "oklch(38% 0.0848 166.0)",
+          "oklch(49% 0.0848 166.0)",
+          "oklch(61% 0.0848 166.0)",
+          "oklch(72% 0.0848 166.0)",
+          "oklch(84% 0.0848 166.0)",
+          "oklch(95% 0.0848 166.0)"
+        ]
+      },
+      "light-selection": {
+        "role": "neutral",
+        "displayName": "light selection",
+        "tonalRamp": [
+          "oklch(15% 0.1939 166.1)",
+          "oklch(26% 0.1939 166.1)",
+          "oklch(38% 0.1939 166.1)",
+          "oklch(49% 0.1939 166.1)",
+          "oklch(61% 0.1939 166.1)",
+          "oklch(72% 0.1939 166.1)",
+          "oklch(84% 0.1939 166.1)",
+          "oklch(95% 0.1939 166.1)"
+        ]
+      },
+      "light-line": {
+        "role": "neutral",
+        "displayName": "light line",
+        "tonalRamp": [
+          "oklch(15% 0.0635 165.7)",
+          "oklch(26% 0.0635 165.7)",
+          "oklch(38% 0.0635 165.7)",
+          "oklch(49% 0.0635 165.7)",
+          "oklch(61% 0.0635 165.7)",
+          "oklch(72% 0.0635 165.7)",
+          "oklch(84% 0.0635 165.7)",
+          "oklch(95% 0.0635 165.7)"
+        ]
+      },
+      "light-text": {
+        "role": "neutral",
+        "displayName": "light text",
+        "tonalRamp": [
+          "oklch(15% 0.0878 165.8)",
+          "oklch(26% 0.0878 165.8)",
+          "oklch(38% 0.0878 165.8)",
+          "oklch(49% 0.0878 165.8)",
+          "oklch(61% 0.0878 165.8)",
+          "oklch(72% 0.0878 165.8)",
+          "oklch(84% 0.0878 165.8)",
+          "oklch(95% 0.0878 165.8)"
+        ]
+      },
+      "light-text-soft": {
+        "role": "neutral",
+        "displayName": "light text soft",
+        "tonalRamp": [
+          "oklch(15% 0.1567 166.0)",
+          "oklch(26% 0.1567 166.0)",
+          "oklch(38% 0.1567 166.0)",
+          "oklch(49% 0.1567 166.0)",
+          "oklch(61% 0.1567 166.0)",
+          "oklch(72% 0.1567 166.0)",
+          "oklch(84% 0.1567 166.0)",
+          "oklch(95% 0.1567 166.0)"
+        ]
+      },
+      "light-text-muted": {
+        "role": "neutral",
+        "displayName": "light text muted",
+        "tonalRamp": [
+          "oklch(15% 0.1664 165.8)",
+          "oklch(26% 0.1664 165.8)",
+          "oklch(38% 0.1664 165.8)",
+          "oklch(49% 0.1664 165.8)",
+          "oklch(61% 0.1664 165.8)",
+          "oklch(72% 0.1664 165.8)",
+          "oklch(84% 0.1664 165.8)",
+          "oklch(95% 0.1664 165.8)"
+        ]
+      },
+      "light-text-faint": {
+        "role": "neutral",
+        "displayName": "light text faint",
+        "tonalRamp": [
+          "oklch(15% 0.1355 165.8)",
+          "oklch(26% 0.1355 165.8)",
+          "oklch(38% 0.1355 165.8)",
+          "oklch(49% 0.1355 165.8)",
+          "oklch(61% 0.1355 165.8)",
+          "oklch(72% 0.1355 165.8)",
+          "oklch(84% 0.1355 165.8)",
+          "oklch(95% 0.1355 165.8)"
+        ]
+      },
+      "light-accent": {
+        "role": "primary",
+        "displayName": "light accent",
+        "tonalRamp": [
+          "oklch(15% 0.6167 165.9)",
+          "oklch(26% 0.6167 165.9)",
+          "oklch(38% 0.6167 165.9)",
+          "oklch(49% 0.6167 165.9)",
+          "oklch(61% 0.6167 165.9)",
+          "oklch(72% 0.6167 165.9)",
+          "oklch(84% 0.6167 165.9)",
+          "oklch(95% 0.6167 165.9)"
+        ]
+      },
+      "light-accent-wash": {
+        "role": "primary",
+        "displayName": "light accent wash",
+        "tonalRamp": [
+          "oklch(15% 0.0841 166.0)",
+          "oklch(26% 0.0841 166.0)",
+          "oklch(38% 0.0841 166.0)",
+          "oklch(49% 0.0841 166.0)",
+          "oklch(61% 0.0841 166.0)",
+          "oklch(72% 0.0841 166.0)",
+          "oklch(84% 0.0841 166.0)",
+          "oklch(95% 0.0841 166.0)"
+        ]
+      }
+    },
+    "shadows": [
+      {
+        "name": "menu",
+        "value": "0 6px 20px rgb(0 0 0 / 0.14)",
+        "purpose": "Floating menus."
+      },
+      {
+        "name": "settings",
+        "value": "0 24px 64px rgb(0 0 0 / 0.28)",
+        "purpose": "Settings dialog."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-out",
+        "value": "cubic-bezier(0.2, 0.8, 0.2, 1)",
+        "purpose": "Shared control easing."
+      },
+      {
+        "name": "preset-state",
+        "value": "0.12s",
+        "purpose": "Preset border and selection transitions."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "compact",
+        "value": "640px"
+      },
+      {
+        "name": "inspector",
+        "value": "1280px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Document Tab",
+      "kind": "nav",
+      "refersTo": "tab-active",
+      "description": "Document Tab using the live resolved appearance variables.",
+      "html": "<button class=\"ds-tab\" aria-selected=\"true\">Draft.md</button>",
+      "css": ".ds-tab{border:0;border-radius:7px;background:var(--bg-active);color:var(--text);font-family:var(--font-body);font-size:calc(12.5px * var(--ui-scale,1));height:32px;padding:0 4px 0 12px}.ds-tab:hover{background:var(--bg-hover)}.ds-tab:focus-visible{outline:2px solid var(--line-focus)}"
+    },
+    {
+      "name": "Appearance Selector",
+      "kind": "input",
+      "refersTo": "appearance-select",
+      "description": "Appearance Selector using the live resolved appearance variables.",
+      "html": "<label class=\"ds-label\">Theme <select class=\"ds-select\"><option>Quantos Dark</option><option>Quantos Light</option></select></label>",
+      "css": ".ds-label{display:flex;align-items:center;justify-content:space-between;gap:16px;color:var(--text-soft);font-family:var(--font-body)}.ds-select{height:32px;padding:0 8px;max-width:58%;min-width:150px;border:1px solid var(--line);border-radius:6px;background:var(--bg-input);color:var(--text);font:inherit}.ds-select:hover{border-color:var(--line-strong)}.ds-select:focus-visible{outline:2px solid var(--line-focus)}"
+    },
+    {
+      "name": "Editor Card",
+      "kind": "card",
+      "refersTo": "editor-card",
+      "description": "Editor Card using the live resolved appearance variables.",
+      "html": "<article class=\"ds-editor\">A place to write.</article>",
+      "css": ".ds-editor{border:1px solid var(--line);border-radius:12px;background:var(--editor-bg);color:var(--text);font-family:var(--font-editor);font-size:var(--editor-size);padding:2rem;overflow:hidden}"
+    },
+    {
+      "name": "Automatic Color Reset",
+      "kind": "button",
+      "description": "Automatic Color Reset using the live resolved appearance variables.",
+      "html": "<button class=\"ds-auto\">Auto</button>",
+      "css": ".ds-auto{font-family:var(--font-body);font-size:11px;color:var(--accent);padding:4px;border:0;border-radius:4px;background:transparent}.ds-auto:hover:not(:disabled){background:var(--bg-hover)}.ds-auto:focus-visible{outline:2px solid var(--line-focus)}.ds-auto:disabled{color:var(--text-muted);cursor:default}"
+    },
+    {
+      "name": "Appearance Preset",
+      "kind": "button",
+      "description": "Appearance Preset using the live resolved appearance variables.",
+      "html": "<button class=\"ds-preset\"><span class=\"ds-swatch\"></span><span>Quantos Dark</span></button>",
+      "css": ".ds-preset{display:flex;flex-direction:column;align-items:center;gap:6px;width:96px;padding:10px 6px;border:1px solid var(--line);border-radius:var(--radius);background:var(--bg-panel);color:var(--text-soft);font-family:var(--font-body);cursor:pointer;transition:border-color .12s var(--ease-out),box-shadow .12s var(--ease-out)}.ds-swatch{width:64px;height:32px;border-radius:var(--radius-sm);background:var(--bg)}.ds-preset:hover{border-color:var(--accent)}.ds-preset:focus-visible{outline:2px solid var(--line-focus)}.ds-preset:active{box-shadow:0 0 0 2px var(--accent)}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The calm card workspace",
+    "overview": "The document leads inside a quiet, inset workspace inherited from Quantos. Separate header, navigation, editor and status surfaces make the application readable without competing with the writing. Controls stay compact; the editor receives the generous reading measure.\n\nThe palette, typography and spacing are user-controlled. Defaults define the family resemblance, while live appearance settings preserve that structure across custom colors, installed fonts and legacy paired themes.",
+    "keyCharacteristics": [
+      "Inset, softly rounded panes on a neutral canvas.",
+      "Restrained blue interaction cues and hierarchical text.",
+      "Independent interface, heading, editor and monospace font roles.",
+      "Local, persistent appearance customization."
+    ],
+    "rules": [
+      {
+        "name": "The Resolved Palette Rule",
+        "body": "Consume semantic CSS variables. A custom background determines light/dark derivation, and explicit element overrides remain authoritative. Automatic swatches must show the actual resolved palette.",
+        "section": "colors"
+      },
+      {
+        "name": "The Four Roles Rule",
+        "body": "Keep UI, heading, editor and code fonts independently configurable; do not hardcode a font into new application controls.",
+        "section": "typography"
+      }
+    ],
+    "dos": [
+      "Do use resolved semantic colors and the four font roles.",
+      "Do preserve pane resizing, outline docking, editor modes and keyboard commands.",
+      "Do test dark, light, narrow and customized appearances.",
+      "Do keep automatic swatches consistent with the actual resolved palette."
+    ],
+    "donts": [
+      "Don't replace editable appearance roles with hardcoded default colors.",
+      "Don't use decorative shadows on resting workspace panes.",
+      "Don't let reading width force split panes wider than their container.",
+      "Don't introduce shipping raster assets without recording provenance."
+    ]
+  }
+}

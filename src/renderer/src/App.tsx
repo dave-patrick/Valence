@@ -1,4 +1,8 @@
+import { baseOf } from '@core/look'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { flushSync } from 'react-dom'
+import { FindReplaceBar } from '@features/find/FindReplaceBar'
+import { createTextHistory, recordTextEdit, undoTextEdit, redoTextEdit, type TextHistory } from '@core/textHistory'
 import { EditorContent, useEditor } from '@tiptap/react'
 import { createExtensions } from '@core/editor/extensions'
 import { LINE_NUMBERS_TOGGLE } from '@core/editor/lineNumbers'
@@ -37,7 +41,7 @@ import { detectSlash } from '@features/slash/useSlash'
 import { loadSettings, rememberFolder, saveSession, saveSettings } from '@features/settings/store'
 import { DEFAULT_SETTINGS } from '@core/settings'
 import type { Settings } from '@core/settings'
-import { resolveBase, resolveCSSVars } from '@core/theme'
+import { resolveBase, resolveAppearance } from '@core/theme'
 import {
   active as activeDoc,
   byId,
@@ -78,6 +82,10 @@ function AppMenu({
   onOpenWorkspace,
   onSave,
   onSaveAll,
+  onFind,
+  onReplace,
+  onUndo,
+  onRedo,
   onCopyMarkdown,
   onCopyHtml,
   onCopyPlain,
@@ -95,6 +103,10 @@ function AppMenu({
   onOpenWorkspace: () => void
   onSave: () => void
   onSaveAll: () => void
+  onFind: () => void
+  onReplace: () => void
+  onUndo: () => void
+  onRedo: () => void
   onCopyMarkdown: () => void
   onCopyHtml: () => void
   onCopyPlain: () => void
@@ -124,12 +136,17 @@ function AppMenu({
     { divider: true },
     { label: 'Save', shortcut: 'Ctrl S', onClick: onSave },
     { label: 'Save all', shortcut: 'Ctrl Shift S', onClick: onSaveAll },
+    { divider: true },
+    { label: 'Undo', shortcut: 'Ctrl Z', onClick: onUndo },
+    { label: 'Redo', shortcut: 'Ctrl Y', onClick: onRedo },
+    { label: 'Find…', shortcut: 'Ctrl F', onClick: onFind },
+    { label: 'Find and replace…', shortcut: 'Ctrl H', onClick: onReplace },
     { label: 'Copy as Markdown', shortcut: 'Ctrl Shift C', onClick: onCopyMarkdown },
     { label: 'Copy as HTML', shortcut: 'Ctrl Shift H', onClick: onCopyHtml },
     { label: 'Copy as Plain Text', shortcut: 'Ctrl Shift P', onClick: onCopyPlain },
     { label: 'Export…', shortcut: 'Ctrl E', onClick: onExport },
     { divider: true },
-    { label: 'Version history', shortcut: 'Ctrl H', onClick: onHistory },
+    { label: 'Version history', shortcut: 'Ctrl Alt H', onClick: onHistory },
     { label: 'Settings', shortcut: 'Ctrl ,', onClick: onSettings },
     { label: 'Toggle theme', shortcut: 'Ctrl /', onClick: onTheme },
     { divider: true },
@@ -200,6 +217,10 @@ export function App() {
   const [readError, setReadError] = useState<string | null>(null)
   const [exportOpen, setExportOpen] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
+  const [findOpen, setFindOpen] = useState(false)
+  const [replaceOpen, setReplaceOpen] = useState(false)
+  const [findFocus, setFindFocus] = useState(0)
+  const [findSeed, setFindSeed] = useState('')
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [appMenuOpen, setAppMenuOpen] = useState(false)
   const appMenuAnchor = useRef<HTMLButtonElement>(null)
@@ -240,6 +261,25 @@ useEffect(() => {
   const markdownDocument = isMarkdownDocument(doc?.path ?? null)
   const effectiveView = markdownDocument ? view : 'source'
   const sourceRef = useRef<HTMLTextAreaElement>(null)
+  const sourceHistories = useRef(new Map<string, TextHistory>())
+  const sourceComposition = useRef(false)
+  const sourceRevision = useRef(0)
+  useEffect(() => {
+    const ids = new Set(session.documents.map(document => document.id))
+    for (const id of sourceHistories.current.keys()) if (!ids.has(id)) sourceHistories.current.delete(id)
+  }, [session.documents])
+  const applySourceEdit = useCallback((text: string, group: string | null = null) => {
+    const current = activeDoc(sessionRef.current)
+    if (!current) return
+    const next = preserveLineEndings(text, current.saved)
+    const previous = sourceHistories.current.get(current.id)
+    const history = previous?.present === current.source ? previous : createTextHistory(current.source)
+    sourceHistories.current.set(current.id, recordTextEdit(history, next, group))
+    sourceRevision.current++
+    const updated = updateDoc(sessionRef.current, current.id, { source: next })
+    sessionRef.current = updated
+    setSession(updated)
+  }, [])
   const headings = useMemo(() => markdownDocument ? outlineOf(source) : [], [source, markdownDocument])
   const textHtml = useMemo(() => markdownDocument ? '' : renderPlainTextToHtml(source, doc?.title), [markdownDocument, source, doc?.title])
 
@@ -350,13 +390,23 @@ useEffect(() => {
   useEffect(() => () => clearTimeout(noticeTimer.current), [])
   const stats = useMemo(() => computeStats(source), [source])
 
+  const [systemTheme, setSystemTheme] = useState(() => resolveBase('system'))
+  useEffect(() => {
+    if (typeof window.matchMedia !== 'function') return
+    const media = window.matchMedia('(prefers-color-scheme: dark)')
+    const update = () => setSystemTheme(media.matches ? 'dark' : 'light')
+    update()
+    media.addEventListener('change', update)
+    return () => media.removeEventListener('change', update)
+  }, [])
+
   const themeState = useMemo(() => ({
     themeId: settings?.themeId ?? DEFAULT_SETTINGS.themeId,
-    base: settings ? resolveBase(settings.theme) : 'light',
+    base: baseOf(settings?.look ?? DEFAULT_SETTINGS.look, settings?.theme === 'system' ? systemTheme : resolveBase(settings?.theme ?? 'system')),
     accent: settings?.accentColor ?? DEFAULT_SETTINGS.accentColor,
-  }), [settings])
+  }), [settings, systemTheme])
 
-  const cssVars = useMemo(() => resolveCSSVars(themeState.themeId, themeState.base, themeState.accent), [themeState])
+  const cssVars = useMemo(() => resolveAppearance(themeState.themeId, themeState.base, themeState.accent, settings?.look ?? DEFAULT_SETTINGS.look), [themeState, settings])
 
   const dirty = doc ? isDirty(doc) : false
 
@@ -535,6 +585,8 @@ useEffect(() => {
     Object.entries(cssVars).forEach(([key, value]) => {
       root.style.setProperty(key, value)
     })
+    platform.window.setAppearance?.(cssVars['--header-bg'], cssVars['--text'])
+    return () => Object.keys(cssVars).forEach((key) => root.style.removeProperty(key))
   }, [themeState, cssVars])
 
   const patchSettings = useCallback((patch: Partial<Settings>) => {
@@ -1076,6 +1128,58 @@ const saveAll = useCallback(async () => {
 
   /* ── Menu, shortcuts, persistence ──────────────────────────── */
 
+  const sourceHistory = useCallback((direction: 'undo' | 'redo') => {
+    flushSync(() => flushEditor())
+    const current = activeDoc(sessionRef.current)
+    if (!current) return ''
+    const previous = sourceHistories.current.get(current.id)
+    const history = previous?.present === current.source ? previous : createTextHistory(current.source)
+    sourceHistories.current.set(current.id, history)
+    if (sourceComposition.current) return current.source.replace(/\r\n/g, '\n')
+    const result = direction === 'undo' ? undoTextEdit(history) : redoTextEdit(history)
+    sourceHistories.current.set(current.id, result.history)
+    if (result.caret !== null) {
+      const revision = ++sourceRevision.current
+      const updated = updateDoc(sessionRef.current, current.id, { source: result.history.present })
+      sessionRef.current = updated
+      flushSync(() => setSession(updated))
+      const caret = result.history.present.slice(0, result.caret).replace(/\r\n/g, '\n').length
+      requestAnimationFrame(() => {
+        const active = activeDoc(sessionRef.current)
+        if (active?.id !== current.id || active.source !== result.history.present || sourceRevision.current !== revision) return
+        sourceRef.current?.focus()
+        sourceRef.current?.setSelectionRange(caret, caret)
+      })
+    }
+    return result.history.present.replace(/\r\n/g, '\n')
+  }, [flushEditor])
+  const commitSearchSource = useCallback((text: string) => {
+    if (!sourceComposition.current) flushSync(() => applySourceEdit(text))
+  }, [applySourceEdit])
+
+  const openFind = useCallback((replace: boolean) => {
+    flushSync(() => flushEditor())
+    const textarea = sourceRef.current
+    const selected = effectiveView === 'source' ? textarea?.value.slice(textarea.selectionStart, textarea.selectionEnd) ?? ''
+      : editor?.state.doc.textBetween(editor.state.selection.from, editor.state.selection.to, '\n') ?? ''
+    setFindSeed(selected.length <= 200 && !selected.includes('\n') ? selected : '')
+    setFindOpen(true); setReplaceOpen(replace); setFindFocus(value => value + 1)
+    setAppMenuOpen(false); setHistoryOpen(false); setSettingsOpen(false)
+  }, [flushEditor, effectiveView, editor])
+  const prepareSearchSource = useCallback(() => {
+    if (sourceComposition.current) return null
+    flushSync(() => flushEditor())
+    const current = activeDoc(sessionRef.current)
+    return current ? { id: current.id, text: current.source.replace(/\r\n/g, '\n') } : null
+  }, [flushEditor])
+  const closeFind = useCallback(() => {
+    setFindOpen(false)
+    requestAnimationFrame(() => {
+      if (effectiveView === 'source') sourceRef.current?.focus()
+      else if (editor && !editor.isDestroyed) editor.view.focus()
+    })
+  }, [editor, effectiveView])
+
   /* ── Commands: one dispatcher for the menu, the keyboard and the palette ── */
 
   const runSlash = useCallback((cmd: { id: string }, range: { from: number; to: number }) => {
@@ -1190,6 +1294,12 @@ const saveAll = useCallback(async () => {
           return
         }
 
+        case 'edit.find': return openFind(false)
+        case 'edit.replace': return openFind(true)
+        case 'edit.undo':
+        case 'edit.redo':
+          if (effectiveView === 'source') return sourceHistory(id === 'edit.undo' ? 'undo' : 'redo')
+          return id === 'edit.undo' ? editor?.commands.undo() : editor?.commands.redo()
         case 'edit.copyMarkdown':
           return void platform.clipboard.writeText(source)
         case 'edit.copyHtml':
@@ -1257,6 +1367,10 @@ const saveAll = useCallback(async () => {
       }
     },
     [
+      openFind,
+      effectiveView,
+      sourceHistory,
+      editor,
       openFile,
       openWorkspace,
       save,
@@ -1282,10 +1396,19 @@ const saveAll = useCallback(async () => {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (e.isComposing || e.keyCode === 229 || sourceComposition.current) return
       const mod = e.ctrlKey || e.metaKey
 
       // The palette owns its own keys while open; Ctrl+P must not also fire underneath it.
       if (paletteOpen) return
+
+      if (mod && !e.altKey && e.target === sourceRef.current) {
+        const key = e.key.toLowerCase()
+        if (key === 'z' || key === 'y') {
+          e.preventDefault()
+          return void sourceHistory(key === 'y' || e.shiftKey ? 'redo' : 'undo')
+        }
+      }
 
       if (mod && (e.key === 'p' || (e.shiftKey && e.key === 'P'))) {
         // Ctrl+P and Ctrl+Shift+P. Taken before everything else so the palette is reachable
@@ -1294,6 +1417,8 @@ const saveAll = useCallback(async () => {
         setPaletteOpen(true)
         return
       }
+
+      if (findOpen && e.key === 'Escape') { e.preventDefault(); closeFind(); return }
 
       // Everything else is a named command, so a shortcut and the palette entry for the same
       // action cannot drift apart.
@@ -1309,14 +1434,16 @@ const saveAll = useCallback(async () => {
       if (mod && e.key === '/') return runCommand('app.theme')
       if (mod && e.key === ',') return runCommand('app.settings')
       if (mod && e.key === 'e') return runCommand('file.export')
-      if (mod && e.key === 'h') return runCommand('view.history')
+      if (mod && e.altKey && e.key.toLowerCase() === 'h') { e.preventDefault(); return runCommand('view.history') }
+      if (mod && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 'f') { e.preventDefault(); return runCommand('edit.find') }
+      if (mod && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 'h') { e.preventDefault(); return runCommand('edit.replace') }
       if (mod && e.altKey && e.key === 'ArrowRight') return runCommand('tab.next')
       if (mod && e.altKey && e.key === 'ArrowLeft') return runCommand('tab.prev')
       if (mod && e.key === 'w') return runCommand('file.close')
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [runCommand, paletteOpen])
+  }, [runCommand, paletteOpen, findOpen, closeFind, sourceHistory])
 
   // Keep a copy of unsaved edits in the app's data folder, so a crash doesn't lose them.
   useEffect(() => {
@@ -1336,13 +1463,64 @@ const saveAll = useCallback(async () => {
   }, [settings, session])
 
   const tabBar = settings?.tabBar ?? 'top'
+  const outlineOnRight = panel === 'outline' && settings?.outlineSide === 'right'
+  const navigationPanel = panel && (
+          <ResizablePane width={sidebarWidth} min={160} max={520} onResize={setSidebarWidth} edge={outlineOnRight ? 'left' : 'right'} label="Resize navigation panel">
+            <Sidebar
+              kind={panel}
+              outlineSide={settings?.outlineSide ?? 'left'}
+              onOutlineSideChange={(side) => patchSettings({ outlineSide: side })}
+              headings={headings}
+              onNavigate={navigateHeading}
+              textDocument={!markdownDocument}
+              source={source}
+              activePath={doc?.path ?? null}
+              backlinks={backlinks}
+              workspaceRoot={workspace.root}
+              onWorkspaceOpen={openWorkspace}
+              onOpenFile={(path) => {
+                void (async () => {
+                  try {
+                    const text = await platform.fs.read(path)
+                    setSession((s) => {
+                      const existing = s.documents.find((d) => d.path === path)
+                      if (existing) return setActiveDoc(s, existing.id)
+                      const next = openDoc(s, fromPath(path, text))
+                      return next
+                    })
+                  } catch {
+                    /* unreadable file: leave the session alone */
+                  }
+                })()
+              }}
+              onBacklinkOpen={(path, _line) => {
+                void (async () => {
+                  try {
+                    const text = await platform.fs.read(path)
+                    setSession((s) => {
+                      const existing = s.documents.find((d) => d.path === path)
+                      if (existing) return setActiveDoc(s, existing.id)
+                      return openDoc(s, fromPath(path, text))
+                    })
+                    setPanel('outline')
+                  } catch {
+                    /* unreadable: stay where we are */
+                  }
+                })()
+              }}
+              onClose={() => setPanel(null)}
+            />
+          </ResizablePane>
+        )
+
 
   return (
-    <div className="flex h-full flex-col" style={{ background: 'var(--bg)' }}>
+    <div className="valence-shell flex h-full flex-col" style={{ background: 'var(--bg)' }}>
+      {/Windows/.test(navigator.userAgent) && /Electron\//.test(navigator.userAgent) && <div className="valence-native-titlebar">Valence</div>}
       {bridgeMissing && <BridgeFaultBanner />}
       <div
-        className="flex items-center gap-2 px-2 py-1 h-10 border-b border-rule"
-        style={{ background: 'var(--surface)' }}
+        className="valence-header flex items-center gap-2 px-2 py-1"
+        style={{ background: 'var(--header-bg)' }}
         onContextMenu={(e) => {
           e.preventDefault()
           setBarMenu({ x: e.clientX, y: e.clientY })
@@ -1358,7 +1536,7 @@ const saveAll = useCallback(async () => {
           aria-expanded={appMenuOpen}
           title="Menu"
         >
-          <span aria-hidden="true" className="grid h-7 w-7 place-items-center rounded-[7px] text-[14px] leading-none" style={{ background: 'var(--accent)', color: 'var(--accent-ink)', fontFamily: 'var(--font-display)', fontWeight: 700 }}>V</span>
+          <span aria-hidden="true" className="grid h-7 w-7 place-items-center rounded-[7px] text-[14px] leading-none" style={{ background: 'var(--accent-wash)', color: 'var(--accent)', fontFamily: 'var(--font-display)', fontWeight: 700 }}>V</span>
         </button>
         </div>
         {tabBar === 'top' && (
@@ -1382,6 +1560,10 @@ const saveAll = useCallback(async () => {
             onOpenWorkspace={() => void runCommand('file.openWorkspace')}
             onSave={() => void runCommand('file.save')}
             onSaveAll={() => void runCommand('file.saveAll')}
+            onFind={() => openFind(false)}
+            onReplace={() => openFind(true)}
+            onUndo={() => void runCommand('edit.undo')}
+            onRedo={() => void runCommand('edit.redo')}
             onCopyMarkdown={() => void runCommand('edit.copyMarkdown')}
             onCopyHtml={() => void runCommand('edit.copyHtml')}
             onCopyPlain={() => void runCommand('edit.copyPlain')}
@@ -1427,7 +1609,7 @@ const saveAll = useCallback(async () => {
         )}
       </div>
 
-      <div className="flex min-h-0 flex-1 overflow-x-auto">
+      <div className="valence-workspace flex min-h-0 flex-1 overflow-x-auto overflow-y-hidden">
         <Rail
           panel={panel}
           onSelect={setPanel}
@@ -1445,56 +1627,14 @@ const saveAll = useCallback(async () => {
           </ResizablePane>
         )}
 
-        {panel && (
-          <ResizablePane width={sidebarWidth} min={160} max={520} onResize={setSidebarWidth} edge="right" label="Resize navigation panel">
-            <Sidebar
-              kind={panel}
-              headings={headings}
-              onNavigate={navigateHeading}
-              textDocument={!markdownDocument}
-              source={source}
-              activePath={doc?.path ?? null}
-              backlinks={backlinks}
-              workspaceRoot={workspace.root}
-              onWorkspaceOpen={openWorkspace}
-              onOpenFile={(path) => {
-                void (async () => {
-                  try {
-                    const text = await platform.fs.read(path)
-                    setSession((s) => {
-                      const existing = s.documents.find((d) => d.path === path)
-                      if (existing) return setActiveDoc(s, existing.id)
-                      const next = openDoc(s, fromPath(path, text))
-                      return next
-                    })
-                  } catch {
-                    /* unreadable file: leave the session alone */
-                  }
-                })()
-              }}
-              onBacklinkOpen={(path, _line) => {
-                void (async () => {
-                  try {
-                    const text = await platform.fs.read(path)
-                    setSession((s) => {
-                      const existing = s.documents.find((d) => d.path === path)
-                      if (existing) return setActiveDoc(s, existing.id)
-                      return openDoc(s, fromPath(path, text))
-                    })
-                    setPanel('outline')
-                  } catch {
-                    /* unreadable: stay where we are */
-                  }
-                })()
-              }}
-              onClose={() => setPanel(null)}
-            />
-          </ResizablePane>
-        )}
+        {!outlineOnRight && navigationPanel}
 
-        <main className="relative flex flex-1 flex-col" style={{ minWidth: 'min-content' }}>
+        <main className="valence-editor-card relative flex min-h-0 flex-1 flex-col" style={{ minWidth: 'min-content' }}>
+          <FindReplaceBar open={findOpen} showReplace={replaceOpen} focusSignal={findFocus} seed={findSeed}
+            editor={editor} source={source} sourceRef={sourceRef} mode={effectiveView === 'source' ? 'source' : 'rich'} docId={doc?.id}
+            prepareSource={prepareSearchSource} commitSource={commitSearchSource} onShowReplace={() => setReplaceOpen(true)} onClose={closeFind} />
           <div className="flex min-h-0 flex-1">
-            <div className="flex min-w-[240px] flex-1 flex-col">
+            <div className="flex min-h-0 min-w-[240px] flex-1 flex-col">
               {effectiveView === 'split' ? (
                 <div className="split-pane" ref={splitRef} style={{ gridTemplateColumns: `minmax(0, calc((100% - 6px) * ${splitPercent / 100})) 6px minmax(0, 1fr)` }}>
                   <EditorPane
@@ -1506,10 +1646,9 @@ const saveAll = useCallback(async () => {
                     source={source}
                     view="hybrid"
                     showLineNumbers={settings?.showLineNumbers ?? false}
-                    onSourceChange={(text) => {
-                      const current = activeDoc(session)
-                      if (current) setSession((s) => updateDoc(s, current.id, { source: text }))
-                    }}
+                    onSourceChange={applySourceEdit}
+                    onSourceHistory={sourceHistory}
+                    compositionRef={sourceComposition}
                   />
                   <ResizeDivider label="Resize editor and preview" value={splitPercent} min={20} max={80} step={2} onChange={setSplitPercent} unitsPerPixel={() => 100 / Math.max(1, (splitRef.current?.clientWidth ?? 6) - 6)} />
                   {/* Content comes from our own render pipeline over the user's own file. */}
@@ -1532,10 +1671,9 @@ const saveAll = useCallback(async () => {
                   source={source}
                   view={effectiveView}
                   showLineNumbers={settings?.showLineNumbers ?? false}
-                  onSourceChange={(text) => {
-                    const current = activeDoc(session)
-                    if (current) setSession((s) => updateDoc(s, current.id, { source: text }))
-                  }}
+                  onSourceChange={applySourceEdit}
+                  onSourceHistory={sourceHistory}
+                  compositionRef={sourceComposition}
                 />
               )}
             </div>
@@ -1563,6 +1701,7 @@ const saveAll = useCallback(async () => {
 
           <TableToolbar editor={editor} />
         </main>
+        {outlineOnRight && navigationPanel}
         {tabBar === 'right' && session.documents.length > 0 && (
           <ResizablePane width={tabsWidth} min={140} max={420} onResize={setTabsWidth} edge="left" label="Resize document tabs">
 <TabBar
@@ -1726,7 +1865,9 @@ const saveAll = useCallback(async () => {
 
 /** Placeholder until settings load, so the panel never renders with undefined. */
 const DEFAULT_SAFE: Settings = {
+  look: DEFAULT_SETTINGS.look,
   tabBar: 'top',
+  outlineSide: 'left',
   theme: 'system',
   themeId: DEFAULT_SETTINGS.themeId,
   accentColor: DEFAULT_SETTINGS.accentColor,
@@ -1744,6 +1885,8 @@ const DEFAULT_SAFE: Settings = {
   lastSession: [],
 }
 
+let sourceCompositionSequence = 0
+
 function EditorPane({
   sourceRef: ref,
   markdownDocument,
@@ -1753,6 +1896,8 @@ function EditorPane({
   view,
   showLineNumbers,
   onSourceChange,
+  onSourceHistory,
+  compositionRef,
 }: {
   sourceRef: React.RefObject<HTMLTextAreaElement | null>
   markdownDocument: boolean
@@ -1761,15 +1906,56 @@ function EditorPane({
   source: string
   view: ViewMode
   showLineNumbers: boolean
-  onSourceChange: (text: string) => void
+  onSourceChange: (text: string, group?: string | null) => void
+  onSourceHistory: (direction: 'undo' | 'redo') => string
+  compositionRef: React.RefObject<boolean>
 }) {
   /** Guards the round trip: editor update -> session -> editor update must not loop. */
   const applying = useRef(false)
   const syncedSource = useRef<string | null>(null)
+  const compositionGroup = useRef<string | null>(null)
+  const compositionTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    if (view !== 'source') return
+    const textarea = ref.current
+    if (!textarea) return
+    let canceledRoute: string | null = null
+    let canceledValue = ''
+    const direction = (event: InputEvent) => event.inputType === 'historyUndo' ? 'undo'
+      : event.inputType === 'historyRedo' ? 'redo' : null
+    const beforeInput = (event: InputEvent) => {
+      const action = direction(event)
+      if (!action || event.isComposing || compositionRef.current || !event.cancelable) return
+      event.preventDefault()
+      canceledRoute = event.inputType
+      canceledValue = onSourceHistory(action)
+      textarea.value = canceledValue
+      queueMicrotask(() => { canceledRoute = null })
+    }
+    const input = (event: Event) => {
+      const native = event as InputEvent
+      const action = direction(native)
+      if (!action || native.isComposing || compositionRef.current) return
+      // Native history can be noncancelable. Never let its unrecorded value reach React.
+      event.stopImmediatePropagation()
+      textarea.value = canceledRoute === native.inputType ? canceledValue : onSourceHistory(action)
+      canceledRoute = null
+    }
+    textarea.addEventListener('beforeinput', beforeInput)
+    textarea.addEventListener('input', input)
+    return () => {
+      textarea.removeEventListener('beforeinput', beforeInput)
+      textarea.removeEventListener('input', input)
+      if (compositionTimer.current !== null) clearTimeout(compositionTimer.current)
+      compositionTimer.current = null
+      compositionGroup.current = null
+      compositionRef.current = false
+    }
+  }, [view, ref, onSourceHistory, compositionRef])
 
   // Source mode is a live view of the same document, not a second buffer. Text typed here is
-  // parsed straight back into editor state, which is why switching views never converts
-  // anything and the caret and undo history survive.
+  // parsed straight back into editor state. Source history is kept separately per document.
   useEffect(() => {
     if (view !== 'source' || !editor || !markdownDocument) return
     if (syncedSource.current === source) return
@@ -1783,7 +1969,7 @@ function EditorPane({
   const handle = useCallback(
     (text: string) => {
       const preserved = preserveLineEndings(text, originalSource)
-      onSourceChange(preserved)
+      onSourceChange(preserved, compositionGroup.current)
       if (editor && markdownDocument && !applying.current) {
         applying.current = true
         editor.commands.setContent(blocksToHtml(parseMarkdown(text).blocks), {
@@ -1811,6 +1997,20 @@ function EditorPane({
           value={source.replace(/\r\n/g, '\n')}
           wrap="off"
           onChange={(e) => handle(e.target.value)}
+          onCompositionStart={() => {
+            if (compositionTimer.current !== null) clearTimeout(compositionTimer.current)
+            compositionRef.current = true
+            compositionGroup.current = `composition-${++sourceCompositionSequence}`
+          }}
+          onCompositionEnd={(event) => {
+            handle(event.currentTarget.value)
+            // Chromium sends its final input after compositionend in some IMEs.
+            compositionTimer.current = setTimeout(() => {
+              compositionGroup.current = null
+              compositionRef.current = false
+              compositionTimer.current = null
+            }, 0)
+          }}
           spellCheck={false}
           aria-label={markdownDocument ? 'Markdown source' : 'Text source'}
           style={{ border: 'none', resize: 'none', display: 'block' }}

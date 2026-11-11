@@ -21,6 +21,8 @@ interface SidebarProps {
   onOpenFile: (path: string) => void
   onWorkspaceOpen: () => void
   onBacklinkOpen: (path: string, line: number) => void
+  outlineSide?: 'left' | 'right'
+  onOutlineSideChange?: (side: 'left' | 'right') => void
   onClose: () => void
 }
 
@@ -37,19 +39,27 @@ export function Sidebar({
   onWorkspaceOpen,
   onBacklinkOpen,
   onClose,
+  outlineSide = 'left',
+  onOutlineSideChange,
 }: SidebarProps) {
   return (
     <aside
-      className="flex min-w-0 flex-1 flex-col"
-      style={{ background: 'var(--surface)' }}
+      className="valence-sidebar flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
+      style={{ background: 'var(--sidebar-bg)' }}
     >
       <header
-        className="flex h-11 shrink-0 items-center justify-between px-4"
+        className="valence-panel-header flex shrink-0 items-center gap-1 px-3"
         style={{ borderBottom: '1px solid var(--rule)' }}
       >
-        <h2 className="text-[13px] font-medium" style={{ color: 'var(--ink-2)' }}>
+        <h2 className="mr-auto text-[13px] font-medium" style={{ color: 'var(--ink-2)' }}>
           {kind === 'outline' ? 'Outline' : kind === 'files' ? 'Files' : 'Search'}
         </h2>
+        {kind === 'outline' && onOutlineSideChange && <button
+          className="shrink-0 rounded px-1 py-1 text-[11px] text-[var(--ink-2)] hover:bg-[var(--surface-2)]"
+          aria-label={`Move outline to ${outlineSide === 'left' ? 'right' : 'left'}`}
+          title={`Move outline to ${outlineSide === 'left' ? 'right' : 'left'}`}
+          onClick={() => onOutlineSideChange(outlineSide === 'left' ? 'right' : 'left')}
+        >Dock {outlineSide === 'left' ? 'right' : 'left'}</button>}
         <button
           onClick={onClose}
           aria-label="Close panel"

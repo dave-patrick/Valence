@@ -31,6 +31,7 @@ const api = {
     reveal: (path: string) => ipcRenderer.invoke('fs:reveal', path),
   },
   win: {
+    setAppearance: (background: string, foreground: string) => ipcRenderer.invoke('win:appearance', background, foreground),
     setTitle: (title: string) => ipcRenderer.invoke('win:title', title),
     setDirty: (dirty: boolean) => ipcRenderer.invoke('win:dirty', dirty),
     /**

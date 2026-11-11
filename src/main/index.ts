@@ -51,7 +51,8 @@ function createWindow(): void {
     minHeight: 480,
     show: false,
     backgroundColor: '#131519',
-    titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
+    titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : process.platform === 'win32' ? 'hidden' : 'default',
+    ...(process.platform === 'win32' ? { titleBarOverlay: { color: '#252628', symbolColor: '#edf2fa', height: 30 } } : {}),
     trafficLightPosition: { x: 14, y: 15 },
     webPreferences: {
       preload: preloadPath(__dirname),
@@ -318,6 +319,12 @@ ipcMain.handle('fs:unwatch', (_e, path: string) => {
 
 ipcMain.handle('win:title', (_e, title: string) => {
   if (main) main.setTitle(title)
+})
+
+ipcMain.handle('win:appearance', (_e, background: unknown, foreground: unknown) => {
+  if (process.platform !== 'win32' || !main) return
+  if (typeof background !== 'string' || typeof foreground !== 'string' || !/^#[0-9a-f]{6}$/i.test(background) || !/^#[0-9a-f]{6}$/i.test(foreground)) return
+  main.setTitleBarOverlay({ color: background, symbolColor: foreground, height: 30 })
 })
 
 ipcMain.handle('win:dirty', (_e, dirty: boolean) => {

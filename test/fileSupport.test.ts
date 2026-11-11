@@ -107,7 +107,7 @@ describe('outline extraction and schema mapping', () => {
     await saveSnapshot(path, '# Restored\n')
     click(button('Source'))
     await until(() => document.querySelector('textarea'))
-    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'h', ctrlKey: true, bubbles: true }))
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'h', ctrlKey: true, altKey: true, bubbles: true }))
     await until(() => button('Restore this version'))
     click(button('Restore this version'))
     await until(() => document.querySelector('textarea')!.value === '# Restored\n')

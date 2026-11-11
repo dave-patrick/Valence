@@ -11,6 +11,7 @@
  * and a frozen list cannot carry a getter that tracks a settings change.
  */
 
+import { DocumentSearch } from './find'
 import StarterKit from '@tiptap/starter-kit'
 import Image from '@tiptap/extension-image'
 import TaskList from '@tiptap/extension-task-list'
@@ -47,6 +48,7 @@ export function createExtensions(
     // Markers are decorations over document state, independent of the schema, but listing
     // them first keeps the intent obvious to a reader.
     SyntaxMarkers,
+    DocumentSearch,
 
     ViewModes.configure({
       focus: flags.focusMode,

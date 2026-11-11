@@ -28,6 +28,7 @@ export interface ValenceBridge {
     reveal(path: string): Promise<void>
   }
   win: {
+    setAppearance?(background: string, foreground: string): Promise<void>
     setTitle(title: string): Promise<void>
     setDirty(dirty: boolean): Promise<void>
     registerCloseGuard(): void
@@ -131,6 +132,7 @@ export function createNodePlatform(): Platform {
     },
 
     window: {
+      setAppearance: (background, foreground) => { void b.win.setAppearance?.(background, foreground) },
       setTitle: (t) => void b.win.setTitle(t),
       setDirty: (d) => void b.win.setDirty(d),
       onCloseGuard: (guard) => {
