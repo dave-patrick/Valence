@@ -1,7 +1,43 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { Settings } from '@core/settings'
 import { resolveAppearance, resolveBase, THEMES } from '@core/theme'
-import { DEFAULT_LOOK, FONTS, PRESETS, THEME_ELEMENTS, baseOf, normaliseLook, parseAppearance, resetElements, type Look } from '@core/look'
+import { DEFAULT_LOOK, FONTS, PRESETS, THEME_ELEMENTS, baseOf, normaliseLook, parseAppearance, parseHex, resetElements, toHex, type Look } from '@core/look'
+import { getPlatform } from '@platform'
+
+interface AppearanceColorProps {
+  label: string
+  value: string
+  customized: boolean
+  onChange: (value: string | null) => void
+  onCopy: (value: string) => void
+}
+
+function AppearanceColor({ label, value, customized, onChange, onCopy }: AppearanceColorProps) {
+  const [draft, setDraft] = useState(value)
+  const parsed = parseHex(draft)
+  useEffect(() => setDraft(value), [value])
+
+  const editHex = (next: string) => {
+    setDraft(next)
+    const rgb = parseHex(next)
+    if (rgb) onChange(toHex(rgb))
+  }
+
+  return (
+    <div className="appearance-color" role="group" aria-label={`${label} color`}>
+      <div className="appearance-color__heading">
+        <span>{label}</span>
+        <button type="button" title={`Reset ${label} to automatic`} aria-label={`Reset ${label} to automatic`} disabled={!customized} onClick={() => onChange(null)}>Auto</button>
+      </div>
+      <div className="appearance-color__value">
+        <input type="color" aria-label={`${label} color picker`} value={value} onChange={e => onChange(e.target.value)} />
+        <input type="text" aria-label={`${label} hex code`} value={draft} maxLength={7} spellCheck={false} autoCapitalize="off" aria-invalid={!parsed} onChange={e => editHex(e.target.value)} />
+        <button type="button" className="appearance-color__copy" title={`Copy ${label} hex code`} aria-label={`Copy ${label} hex code`} onClick={() => onCopy(value)}>Copy</button>
+      </div>
+      {!parsed && <span className="appearance-color__error">Enter 3 or 6 hex digits.</span>}
+    </div>
+  )
+}
 
 export function AppearancePanel({ settings, onChange }: { settings: Settings; onChange: (patch: Partial<Settings>) => void }) {
   const look = settings.look
@@ -10,12 +46,18 @@ export function AppearancePanel({ settings, onChange }: { settings: Settings; on
   const fileRef = useRef<HTMLInputElement>(null)
   const [message, setMessage] = useState('')
   const set = (patch: Partial<Look>) => onChange({ look: normaliseLook({ ...look, ...patch }) })
-  const color = (key: keyof Look, label: string, cssVar: string) => (
-    <div className="appearance-color" key={key}>
-      <label><input type="color" aria-label={label} value={String(look[key] ?? vars[cssVar] ?? '#808080')} onChange={e => set({ [key]: e.target.value })} /><span>{label}</span></label>
-      <button type="button" title={`Reset ${label}`} aria-label={`Reset ${label}`} disabled={look[key] == null} onClick={() => set({ [key]: null })}>Auto</button>
-    </div>
-  )
+  const color = (key: keyof Look, label: string, cssVar: string) => {
+    const candidate = String(look[key] ?? vars[cssVar] ?? '#808080')
+    const value = toHex(parseHex(candidate) ?? [128, 128, 128])
+    return <AppearanceColor
+      key={key}
+      label={label}
+      value={value}
+      customized={look[key] != null}
+      onChange={next => set({ [key]: next })}
+      onCopy={hex => { void getPlatform().clipboard.writeText(hex).then(() => setMessage(`Copied ${hex}.`)).catch(() => setMessage('Could not copy the color code.')) }}
+    />
+  }
   const range = (key: 'scale' | 'spacing' | 'cardSpacing' | 'editorSize' | 'editorWidth', label: string, min: number, max: number, step: number, unit: string) => (
     <label className="appearance-range" key={key}>
       <span>{label}</span><output>{key === 'scale' ? Math.round(look[key] * 100) : look[key]}{unit}</output>
@@ -23,19 +65,19 @@ export function AppearancePanel({ settings, onChange }: { settings: Settings; on
     </label>
   )
   return <div className="valence-appearance">
-    <p className="valence-hint">Quantos-style cards, with your own colors, type and spacing. Changes save automatically.</p>
+    <p className="valence-hint">Choose a palette, then adjust colors, type and spacing. Changes save automatically.</p>
     <label className="appearance-select"><span>Starting point</span><select aria-label="Appearance preset" value="" onChange={e => {
       const preset = PRESETS.find(p => p.key === e.target.value)
       if (preset) onChange({ themeId: 'house', theme: preset.base ?? settings.theme, accentColor: (preset.base === 'light' ? '#1a66c4' : '#78b6ff'), look: normaliseLook({ ...DEFAULT_LOOK, ...preset.look }) })
     }}><option value="" disabled>Choose a preset…</option>{PRESETS.map(p => <option value={p.key} key={p.key}>{p.label}</option>)}</select></label>
     <label className="appearance-select"><span>Color mode</span><select aria-label="Color mode" value={settings.theme} onChange={e => onChange({ theme: e.target.value as Settings['theme'] })}><option value="system">Follow system</option><option value="light">Light</option><option value="dark">Dark</option></select></label>
     {look.bg && <p className="valence-hint">Your background color determines the palette mode. Set Background to Auto to follow the color mode.</p>}
-    <label className="appearance-select"><span>Base palette</span><select aria-label="Base palette" value={THEMES.some(t => t.id === settings.themeId) ? settings.themeId : 'house'} onChange={e => onChange({ themeId: e.target.value })}>{THEMES.map(t => <option value={t.id} key={t.id}>{t.name === 'House' ? 'Quantos' : t.name}</option>)}</select></label>
+    <label className="appearance-select"><span>Base palette</span><select aria-label="Base palette" value={THEMES.some(t => t.id === settings.themeId) ? settings.themeId : 'house'} onChange={e => onChange({ themeId: e.target.value })}>{THEMES.map(t => <option value={t.id} key={t.id}>{t.name === 'House' ? 'Valence' : t.name}</option>)}</select></label>
     <div className="appearance-colors">
       {color('bg', 'Background', '--bg')}{color('text', 'Primary text', '--text')}{color('secondaryText', 'Secondary text', '--text-muted')}{color('accent', 'Accent', '--accent')}
     </div>
     <details className="appearance-details"><summary>Interface colors</summary>
-      {(['surfaces','interactive','borders','feedback'] as const).map(category => <fieldset key={category}><legend>{category === 'surfaces' ? 'Surfaces' : category === 'interactive' ? 'Interaction' : category === 'borders' ? 'Borders' : 'Feedback'}</legend><div className="appearance-colors">{THEME_ELEMENTS.filter(e => e.category === category).map(e => color(e.key, e.label, e.cssVar))}</div></fieldset>)}
+      {(['surfaces','interactive','borders','feedback'] as const).map(category => <fieldset key={category}><legend>{category === 'surfaces' ? 'Surfaces' : category === 'interactive' ? 'Interaction & focus' : category === 'borders' ? 'Borders' : 'Feedback'}</legend><div className="appearance-colors">{THEME_ELEMENTS.filter(e => e.category === category).map(e => color(e.key, e.label, e.cssVar))}</div></fieldset>)}
       <button className="valence-btn" onClick={() => onChange({ look: resetElements(look) })}>Reset element colors</button>
     </details>
     <details className="appearance-details" open><summary>Text & spacing</summary>
@@ -67,6 +109,6 @@ export function AppearancePanel({ settings, onChange }: { settings: Settings; on
         } catch (error) { setMessage(error instanceof Error ? error.message : 'Could not import the theme.') }
       }} />
     </div>
-    {message && <p className="valence-hint" role="status">{message}</p>}
+    {message && <p className="valence-hint" role="status" aria-live="polite">{message}</p>}
   </div>
 }

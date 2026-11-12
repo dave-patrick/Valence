@@ -1629,6 +1629,12 @@ const saveAll = useCallback(async () => {
           </div>
         )}
         {settings?.quantosVault && settings.quantosShowInHeader && <button className="valence-header-action" aria-label="Move to Quantos vault" title="Move to Quantos vault" disabled={!!movingDocId} onClick={() => void moveToQuantos()}><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M14 3h7v7M21 3 10 14M10 3H4a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1v-6" /></svg></button>}
+        <button className="valence-header-action valence-header-settings" aria-label="Settings" title="Settings" onClick={() => setSettingsOpen(true)}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M12.22 2h-.44a2 2 0 0 0-1.98 1.72l-.2 1.39c-.61.25-1.18.58-1.7.99l-1.33-.52a2 2 0 0 0-2.42.93l-.22.38a2 2 0 0 0 .44 2.55l1.06.87a7.19 7.19 0 0 0 0 1.98l-1.06.87a2 2 0 0 0-.44 2.55l.22.38a2 2 0 0 0 2.42.93l1.33-.52c.52.41 1.09.74 1.7.99l.2 1.39A2 2 0 0 0 11.78 22h.44a2 2 0 0 0 1.98-1.72l.2-1.39c.61-.25 1.18-.58 1.7-.99l1.33.52a2 2 0 0 0 2.42-.93l.22-.38a2 2 0 0 0-.44-2.55l-1.06-.87a7.19 7.19 0 0 0 0-1.98l1.06-.87a2 2 0 0 0 .44-2.55l-.22-.38a2 2 0 0 0-2.42-.93l-1.33.52a7.08 7.08 0 0 0-1.7-.99l-.2-1.39A2 2 0 0 0 12.22 2Z" />
+            <circle cx="12" cy="12" r="3" />
+          </svg>
+        </button>
         {appMenuOpen && (
           <AppMenu
             open={appMenuOpen}

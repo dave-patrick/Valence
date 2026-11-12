@@ -1216,6 +1216,7 @@
 .valence-header button[aria-label="Menu"] { width: 28px; height: 28px; min-height: 28px; padding: 0; background: transparent; }
 .valence-header button[aria-label="Menu"]:hover { background: var(--bg-hover); }
 .valence-header-action { width: 28px; height: 28px; min-height: 28px; padding: 0; }
+.valence-header-settings { margin-left: auto; }
 .valence-panel-header { min-height: 42px; }
 .valence-panel-header > button { font-size: calc(11px * var(--ui-scale, 1)); }
 .valence-sidebar h2 { font-size: calc(13px * var(--ui-scale, 1)); }
@@ -1241,10 +1242,15 @@
 .appearance-select { display: flex; align-items: center; justify-content: space-between; gap: 16px; color: var(--ink-2); }
 .appearance-select select { max-width: 58%; min-width: 150px; height: 32px; padding: 0 8px; background: var(--bg-input); color: var(--ink); border: 1px solid var(--line); border-radius: 6px; font: inherit; }
 .appearance-colors { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px 18px; }
-.appearance-color { display: flex; align-items: center; justify-content: space-between; gap: 6px; min-width: 0; }
-.appearance-color label { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--ink-2); min-width: 0; }
+.appearance-color { display: flex; flex-direction: column; align-items: stretch; gap: 5px; min-width: 0; }
+.appearance-color__heading, .appearance-color__value { display: flex; align-items: center; gap: 7px; min-width: 0; }
+.appearance-color__heading { justify-content: space-between; font-size: 12px; color: var(--ink-2); }
 .appearance-color input[type='color'] { width: 28px; height: 28px; flex-shrink: 0; padding: 2px; background: var(--bg-input); border: 1px solid var(--line); border-radius: 5px; cursor: pointer; }
-.appearance-color button { font-size: 11px; color: var(--accent); padding: 4px; border-radius: 4px; }
+.appearance-color input[type='text'] { flex: 1; width: 0; min-width: 0; height: 28px; padding: 0 7px; border: 1px solid var(--line); border-radius: 5px; background: var(--bg-input); color: var(--ink); font: 11px var(--font-mono); }
+.appearance-color input[type='text'][aria-invalid='true'] { border-color: var(--danger); }
+.appearance-color button { font-size: 11px; color: var(--accent); padding: 4px 6px; border-radius: 4px; }
+.appearance-color__copy { flex-shrink: 0; }
+.appearance-color__error { color: var(--danger); font-size: 10px; }
 .appearance-color button:disabled { color: var(--ink-3); cursor: default; }
 .appearance-color button:hover:not(:disabled) { background: var(--bg-hover); }
 .appearance-details { border-top: 1px solid var(--rule); padding-top: 12px; }

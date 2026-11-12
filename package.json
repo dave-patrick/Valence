@@ -1,7 +1,7 @@
 {
   "name": "valence",
   "version": "0.2.4",
-  "buildId": "2026.11.11.18",
+  "buildId": "2026.12.11.19",
   "private": true,
   "description": "Valence - a local-first Markdown editor. Typora seamless reading, MarkText editor depth, modernised.",
   "author": "Dave Patrick <dave-patrick@users.noreply.github.com>",
@@ -63,7 +63,7 @@
     "vitest": "^5.0.5"
   },
   "build": {
-    "artifactName": "Valence-${version}-build-2026.11.11.18-${os}-${arch}.${ext}",
+    "artifactName": "Valence-${version}-build-2026.12.11.19-${os}-${arch}.${ext}",
     "appId": "dev.valence.editor",
     "productName": "Valence",
     "directories": {

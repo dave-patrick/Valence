@@ -1,6 +1,6 @@
 # Valence 0.2.4
 
-Build: **2026.11.11.18**
+Build: **2026.12.11.19**
 
 ## Changes
 
@@ -9,6 +9,7 @@ Build: **2026.11.11.18**
 - Added card spacing and editor border color controls, compacted the header and status bar, and updated the app icon.
 - Added a new document button, configurable Quantos vault moves, and left/right docking for every sidebar panel.
 - Fixed live word counts while typing and improved Markdown prose counting.
+- Removed the internal product reference from appearance labels, added editable/copyable hex values, and added a header Settings button.
 
 - Fixed scrolling in long outlines and added a remembered left/right dock option in the Outline header.
 
@@ -28,7 +29,7 @@ Build: **2026.11.11.18**
 
 ## Downloads
 
-Every artifact filename includes release **0.2.4** and build **2026.11.11.18**.
+Every artifact filename includes release **0.2.4** and build **2026.12.11.19**.
 
 - Windows x64: extract the ZIP into its own folder, then run Valence.exe. Close the previous copy before replacing it.
 - Linux: mark the AppImage executable, then run it.

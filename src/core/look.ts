@@ -85,10 +85,10 @@ export const DEFAULT_LOOK: Look = {
 
 export interface Preset { key: string; label: string; look: Partial<Look>; base?: 'dark' | 'light' }
 
-/** Starting points. Quantos Dark and Light are the built-in palettes; the rest are generated. */
+/** Built-in starting palettes and user-facing color presets. */
 export const PRESETS: Preset[] = [
-  { key: 'quantos-dark', label: 'Quantos Dark', look: {}, base: 'dark' },
-  { key: 'quantos-light', label: 'Quantos Light', look: {}, base: 'light' },
+  { key: 'quantos-dark', label: 'Valence Dark', look: {}, base: 'dark' },
+  { key: 'quantos-light', label: 'Valence Light', look: {}, base: 'light' },
   { key: 'midnight', label: 'Midnight', look: { bg: '#0b0b12', sidebarBg: '#08080e', editorBg: '#0e0e18', accent: '#b6a2ff' } },
   { key: 'graphite', label: 'Graphite', look: { bg: '#1c1d21', sidebarBg: '#16171a', editorBg: '#212227', text: '#e8e6e3', accent: '#f4c46a' } },
   { key: 'nord', label: 'Nord', look: { bg: '#2e3440', sidebarBg: '#272c36', editorBg: '#3b4252', text: '#eceff4', accent: '#88c0d0' } },
@@ -181,7 +181,7 @@ export const THEME_ELEMENTS: ElementDef[] = [
   { key: 'selectBg', cssVar: '--bg-select', label: 'Selection highlight', category: 'interactive', description: 'Text selection and active table rows' },
   { key: 'hoverBg', cssVar: '--bg-hover', label: 'Hover highlight', category: 'interactive', description: 'Buttons and list items on hover' },
   { key: 'activeBg', cssVar: '--bg-active', label: 'Active item', category: 'interactive', description: 'Pressed buttons and active segments' },
-  { key: 'lineFocus', cssVar: '--line-focus', label: 'Focus ring', category: 'interactive', description: 'Keyboard focus and active input borders' },
+  { key: 'lineFocus', cssVar: '--line-focus', label: 'Focus ring', category: 'interactive', description: 'Keyboard focus around controls and inputs' },
   { key: 'accentWash', cssVar: '--accent-wash', label: 'Accent wash', category: 'interactive', description: 'Subtle accent background for badges and chips' },
   { key: 'accentInk', cssVar: '--accent-ink', label: 'Accent text / ink', category: 'interactive', description: 'Text colour inside filled accent buttons' },
 
@@ -191,12 +191,12 @@ export const THEME_ELEMENTS: ElementDef[] = [
   { key: 'lineStrong', cssVar: '--line-strong', label: 'Strong borders', category: 'borders', description: 'Focused pane borders and dialog boundaries' },
 
   // Status & Feedback
-  { key: 'ok', cssVar: '--ok', label: 'Success / OK', category: 'feedback', description: 'Completed tasks and online connection' },
-  { key: 'warn', cssVar: '--warn', label: 'Warning', category: 'feedback', description: 'Caution notices and sync conflict alerts' },
-  { key: 'danger', cssVar: '--danger', label: 'Danger / Error', category: 'feedback', description: 'Deleted items and error notices' }
+  { key: 'ok', cssVar: '--ok', label: 'Success', category: 'feedback', description: 'Successful actions and application status' },
+  { key: 'warn', cssVar: '--warn', label: 'Warning', category: 'feedback', description: 'Non-blocking cautions, including export notices' },
+  { key: 'danger', cssVar: '--danger', label: 'Error', category: 'feedback', description: 'Errors and destructive history actions' }
 ];
 
-/** Fonts that ship with Quantos, then ones found on most Windows PCs. Any installed font can be typed in. */
+/** Fonts bundled with Valence, followed by common Windows fonts. Any installed font can be typed in. */
 export const FONTS: { name: string; kind: 'sans' | 'serif' | 'mono' | 'display' }[] = [
   { name: 'Source Sans 3', kind: 'sans' }, { name: 'Chakra Petch', kind: 'display' }, { name: 'IBM Plex Mono', kind: 'mono' },
   { name: 'Segoe UI', kind: 'sans' }, { name: 'Calibri', kind: 'sans' }, { name: 'Arial', kind: 'sans' }, { name: 'Verdana', kind: 'sans' }, { name: 'Tahoma', kind: 'sans' },
