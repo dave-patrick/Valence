@@ -171,6 +171,7 @@ export function searchCommands(commands: readonly CommandDef[], query: string): 
 export const COMMANDS: readonly CommandDef[] = [
   // File
   { id: 'file.new', title: 'New document', group: 'File', keys: 'Ctrl N' },
+  { id: 'file.quantos', title: 'Move to Quantos vault', group: 'File', keywords: 'send export vault workspace' },
   { id: 'file.open', title: 'Open file', group: 'File', keys: 'Ctrl O' },
   { id: 'file.openWorkspace', title: 'Open workspace', group: 'File', keywords: 'vault folder project', keys: 'Ctrl Shift O' },
   { id: 'file.save', title: 'Save', group: 'File', keys: 'Ctrl S' },

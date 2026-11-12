@@ -89,7 +89,7 @@ try {
       }
     }
   }
-  await until(async()=>JSON.parse(await readFile(join(profile,'valence.settings'),'utf8')).outlineSide==='right')
+  await until(async()=>JSON.parse(await readFile(join(profile,'valence.settings'),'utf8')).sidebarSide==='right')
   check(true,'right dock preference is saved to settings')
   await click('Dock left');await until(async()=> (await outline())?.side==='left')
   check(true,'outline docks back to left')

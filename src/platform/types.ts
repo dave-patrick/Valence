@@ -6,6 +6,8 @@
  * (docs/02-architecture.md §1.2).
  */
 
+import type { QuantosMoveRequest, QuantosMoveResult } from '../core/quantos'
+
 export interface FileStat {
   path: string
   size: number
@@ -49,6 +51,10 @@ export interface ExportFormat {
 export type UnsavedChoice = 'save' | 'discard' | 'cancel'
 
 export interface Platform {
+  quantos?: {
+    inspect(root: string): Promise<string[]>
+    send(request: QuantosMoveRequest): Promise<QuantosMoveResult>
+  }
   readonly kind: 'electron' | 'tauri' | 'web'
 
   app: {

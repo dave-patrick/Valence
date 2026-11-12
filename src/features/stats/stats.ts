@@ -1,10 +1,6 @@
-/**
- * Document statistics — Typora's word-count feature done properly.
- *
- * Counts prose, not markup. Code fences, inline code, URLs, and math are excluded, because a
- * "1,204 words" figure that counts `import` statements is a worse lie than no figure at all.
- * CJK is counted per character, since word boundaries do not apply.
- */
+import MarkdownIt from 'markdown-it'
+import type { Node as ProseMirrorNode, Mark } from '@tiptap/pm/model'
+import { parseFrontMatter } from '../../shared/frontMatter'
 
 export interface DocumentStats {
   words: number
@@ -18,90 +14,73 @@ export interface DocumentStats {
   links: number
   readingMinutes: number
 }
-
-const CJK = /[぀-ヿ㐀-䶿一-鿿豈-﫿가-힯]/
-
-/** 238 wpm is the median adult silent-reading rate for non-technical prose (Brysbaert 2019). */
+const CJK = /[぀-ヿ㐀-䶿一-鿿豈-﫿가-힯]/g
 const WPM = 238
+const markdown = new MarkdownIt({ html: true, linkify: true })
+const withoutUrls = (text: string) => text.replace(/\b(?:https?:\/\/|www\.)[^\s<>]+/gi, '')
+function finish(text: string, structure: Pick<DocumentStats, 'lines' | 'paragraphs' | 'headings' | 'codeBlocks' | 'images' | 'links'>): DocumentStats {
+  const words = (text.match(CJK) ?? []).length + (text.replace(CJK, ' ').match(/[\p{L}\p{N}][\p{L}\p{N}'’_-]*/gu) ?? []).length
+  return { ...structure, words, characters: [...text].length, charactersNoSpaces: [...text.replace(/\s/g, '')].length,
+    readingMinutes: words ? Math.max(1, Math.round(words / WPM)) : 0 }
+}
 
-export function computeStats(source: string): DocumentStats {
-  const lines = source.split('\n')
-  let inFence = false
-  let fenceChar = ''
-
+/** Count literal text, or Markdown prose excluding code, math, URLs and metadata. */
+export function computeStats(source: string, format: 'markdown' | 'text' = 'markdown'): DocumentStats {
+  const structure = { lines: source.split('\n').length, paragraphs: 0, headings: 0, codeBlocks: 0, images: 0, links: 0 }
+  if (format === 'text') return finish(source, { ...structure, paragraphs: source.split(/\r?\n\s*\r?\n/).filter(p => p.trim()).length })
+  // Math is represented by custom editor atoms; remove its source before the Markdown parser.
+  const body = parseFrontMatter(source).body.replace(/\$\$[\s\S]*?\$\$/g, '').replace(/(?<!\\)\$(?!\s)([^$\n]*?\S)\$/g, '')
   const prose: string[] = []
-  let codeBlocks = 0
-  let headings = 0
-
-  for (const line of lines) {
-    const fence = /^\s*(`{3,}|~{3,})/.exec(line)
-    if (fence) {
-      if (!inFence) {
-        inFence = true
-        fenceChar = fence[1]![0]!
-        codeBlocks++
-      } else if (fence[1]![0] === fenceChar) {
-        inFence = false
-      }
-      continue
+  for (const token of markdown.parse(body, {})) {
+    if (token.type === 'fence' || token.type === 'code_block') structure.codeBlocks++
+    if (token.type === 'heading_open') structure.headings++
+    if (token.type !== 'inline') continue
+    let text = ''
+    for (const child of token.children ?? []) {
+      if (child.type === 'image') structure.images++
+      if (child.type === 'link_open') structure.links++
+      if (child.type === 'text') text += withoutUrls(child.content)
+      if (child.type === 'softbreak' || child.type === 'hardbreak') text += '\n'
     }
-    if (inFence) continue
-
-    if (/^\s{0,3}#{1,6}\s/.test(line)) headings++
-
-    let text = line
-      .replace(/^\s{0,3}#{1,6}\s+/, '')
-      .replace(/^\s{0,3}>\s?/, '')
-      .replace(/^\s*([-*+]|\d+\.)\s+/, '')
-      .replace(/^\s*\[([ xX])\]\s+/, '')
-      .replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1')
-      .replace(/<[^>]+>/g, '')
-      .replace(/[*_~`^=|]/g, '')
-
-    if (text.trim()) prose.push(text)
+    if (text.trim()) { prose.push(text); structure.paragraphs++ }
   }
-
-  const text = prose.join(' ')
-  const cjkCount = (text.match(new RegExp(CJK, 'g')) ?? []).length
-  const latinCount = countLatinWords(text)
-
-  const words = latinCount + cjkCount
-  const characters = [...text].length
-  const charactersNoSpaces = [...text.replace(/\s/g, '')].length
-
-  return {
-    words,
-    characters,
-    charactersNoSpaces,
-    lines: lines.length,
-    paragraphs: prose.filter((p) => p.trim()).length,
-    headings,
-    codeBlocks,
-    images: (source.match(/!\[[^\]]*\]\(/g) ?? []).length,
-    links: (source.match(/(?<!!)\[[^\]]*\]\(/g) ?? []).length,
-    readingMinutes: words === 0 ? 0 : Math.max(1, Math.round(words / WPM)),
-  }
+  return finish(prose.join('\n'), structure)
 }
 
-function countLatinWords(text: string): number {
-  const stripped = text.replace(new RegExp(CJK, 'g'), ' ')
-  return (stripped.match(/[\p{L}\p{N}][\p{L}\p{N}'’_-]*/gu) ?? []).length
+/** Visit editor nodes directly so live statistics do not require Markdown serialization. */
+export function computeRichStats(doc: ProseMirrorNode): DocumentStats {
+  const structure = { lines: 1, paragraphs: 0, headings: 0, codeBlocks: 0, images: 0, links: 0 }
+  const prose: string[] = []
+  doc.descendants(node => {
+    const name = node.type.name
+    if (name === 'codeBlock' || name === 'diagram') { structure.codeBlocks++; return false }
+    if (name === 'mathBlock' || name === 'inlineMath') return false
+    if (name === 'heading') structure.headings++
+    if (name === 'image') { structure.images++; return false }
+    if (!node.isTextblock) return
+    let text = ''
+    let previousLink: Mark | null = null
+    node.descendants(child => {
+      const link = child.marks.find(mark => mark.type.name === 'link')
+      if (link && (!previousLink || !link.eq(previousLink))) structure.links++
+      previousLink = link ?? null
+      if (child.isText && !child.marks.some(mark => mark.type.name === 'code')) text += withoutUrls(child.text ?? '')
+      if (child.type.name === 'hardBreak') text += '\n'
+      if (child.type.name === 'image') structure.images++
+      return !['inlineMath', 'mathBlock', 'image'].includes(child.type.name)
+    })
+    if (text.trim()) { prose.push(text); structure.paragraphs++ }
+    return false
+  })
+  structure.lines = Math.max(1, prose.join('\n').split('\n').length)
+  return finish(prose.join('\n'), structure)
 }
 
-/** Live progress against a goal, for the inspector. */
-export function goalProgress(stats: DocumentStats, goal: number): number {
-  if (goal <= 0) return 0
-  return Math.min(1, stats.words / goal)
-}
-
-export function formatCount(n: number): string {
-  return n.toLocaleString('en-US')
-}
-
+export function goalProgress(stats: DocumentStats, goal: number): number { return goal <= 0 ? 0 : Math.min(1, stats.words / goal) }
+export function formatCount(n: number): string { return n.toLocaleString('en-US') }
 export function formatDuration(minutes: number): string {
   if (minutes <= 0) return '—'
   if (minutes < 60) return `${minutes} min`
-  const h = Math.floor(minutes / 60)
-  const m = minutes % 60
+  const h = Math.floor(minutes / 60), m = minutes % 60
   return m === 0 ? `${h} hr` : `${h} hr ${m} min`
 }

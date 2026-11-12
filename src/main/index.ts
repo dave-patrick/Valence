@@ -2,8 +2,10 @@ import { app, BrowserWindow, clipboard, ClipboardItem, dialog, ipcMain, Menu, sh
 import { readFile, writeFile, stat, readdir, mkdir } from 'node:fs/promises'
 import { watch, type FSWatcher, statSync as statSyncFile } from 'node:fs'
 import { basename, dirname, isAbsolute, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { execFile, spawn } from 'node:child_process'
 import { DOCUMENT_EXTENSIONS } from '../shared/fileTypes'
+import { inspectQuantosVault, moveToQuantos } from './quantos'
 import { decideNavigation, type NavigationDecision } from '../shared/navigation'
 import { preloadPath, resolveDataPath as resolvePath } from './paths'
 import { applyUpdate, canSelfUpdate, checkForUpdate, downloadUpdate, openReleasesPage } from './updater'
@@ -15,6 +17,10 @@ import {
 } from './associations'
 
 const isDev = !app.isPackaged
+const mainDir = dirname(fileURLToPath(import.meta.url))
+
+ipcMain.handle('quantos:inspect', (_event, root: string) => inspectQuantosVault(root))
+ipcMain.handle('quantos:send', (_event, request: unknown) => moveToQuantos(request as never))
 
 /** Files passed on the command line ("Open with", drag onto the exe, etc.). */
 let pendingOpenFiles: string[] = []
@@ -55,7 +61,7 @@ function createWindow(): void {
     ...(process.platform === 'win32' ? { titleBarOverlay: { color: '#252628', symbolColor: '#edf2fa', height: 30 } } : {}),
     trafficLightPosition: { x: 14, y: 15 },
     webPreferences: {
-      preload: preloadPath(__dirname),
+      preload: preloadPath(mainDir),
       // The preload is built as CommonJS (see electron.vite.config.ts), so it can run sandboxed.
       sandbox: true,
       contextIsolation: true,
@@ -87,7 +93,7 @@ function createWindow(): void {
 
   const devUrl = process.env['ELECTRON_RENDERER_URL']
   if (isDev && devUrl) void main.loadURL(devUrl)
-  else void main.loadFile(`${__dirname}/../renderer/index.html`)
+  else void main.loadFile(join(mainDir, '../renderer/index.html'))
 }
 
 if (gotTheLock) {

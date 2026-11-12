@@ -7,6 +7,7 @@ import { FileList } from '@features/files/FileList'
 import { WorkspaceSearch } from '@features/search/WorkspaceSearch'
 import { Backlinks } from '@features/wiki/Backlinks'
 import { dirname } from '@shared/path'
+import { useSidebarDockMenu } from './SidebarDockMenu'
 
 interface SidebarProps {
   kind: Exclude<PanelId, null>
@@ -21,8 +22,8 @@ interface SidebarProps {
   onOpenFile: (path: string) => void
   onWorkspaceOpen: () => void
   onBacklinkOpen: (path: string, line: number) => void
-  outlineSide?: 'left' | 'right'
-  onOutlineSideChange?: (side: 'left' | 'right') => void
+  sidebarSide?: 'left' | 'right'
+  onSidebarSideChange?: (side: 'left' | 'right') => void
   onClose: () => void
 }
 
@@ -39,27 +40,30 @@ export function Sidebar({
   onWorkspaceOpen,
   onBacklinkOpen,
   onClose,
-  outlineSide = 'left',
-  onOutlineSideChange,
+  sidebarSide = 'left',
+  onSidebarSideChange,
 }: SidebarProps) {
+  const dockMenu = useSidebarDockMenu(sidebarSide, onSidebarSideChange)
   return (
     <aside
       className="valence-sidebar flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
       style={{ background: 'var(--sidebar-bg)' }}
     >
       <header
+        {...dockMenu.handlers}
+        tabIndex={-1}
         className="valence-panel-header flex shrink-0 items-center gap-1 px-3"
         style={{ borderBottom: '1px solid var(--rule)' }}
       >
         <h2 className="mr-auto text-[13px] font-medium" style={{ color: 'var(--ink-2)' }}>
           {kind === 'outline' ? 'Outline' : kind === 'files' ? 'Files' : 'Search'}
         </h2>
-        {kind === 'outline' && onOutlineSideChange && <button
+        {onSidebarSideChange && <button
           className="shrink-0 rounded px-1 py-1 text-[11px] text-[var(--ink-2)] hover:bg-[var(--surface-2)]"
-          aria-label={`Move outline to ${outlineSide === 'left' ? 'right' : 'left'}`}
-          title={`Move outline to ${outlineSide === 'left' ? 'right' : 'left'}`}
-          onClick={() => onOutlineSideChange(outlineSide === 'left' ? 'right' : 'left')}
-        >Dock {outlineSide === 'left' ? 'right' : 'left'}</button>}
+          aria-label={`Move sidebar to ${sidebarSide === 'left' ? 'right' : 'left'}`}
+          title={`Move sidebar to ${sidebarSide === 'left' ? 'right' : 'left'}`}
+          onClick={() => onSidebarSideChange(sidebarSide === 'left' ? 'right' : 'left')}
+        >Dock {sidebarSide === 'left' ? 'right' : 'left'}</button>}
         <button
           onClick={onClose}
           aria-label="Close panel"
@@ -100,6 +104,7 @@ export function Sidebar({
         )}
       </div>
 
+      {dockMenu.content}
     </aside>
   )
 }

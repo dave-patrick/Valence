@@ -11,6 +11,7 @@ import type { Platform, UnsavedChoice } from './types'
 import { createWebPlatform } from './web'
 
 export interface ValenceBridge {
+  quantos?: NonNullable<Platform['quantos']>
   app: {
     version(): Promise<string>
   }
@@ -100,6 +101,7 @@ export function createNodePlatform(): Platform {
 
   return {
     kind: 'electron',
+    quantos: b.quantos,
 
     app: {
       version: () => b.app.version(),

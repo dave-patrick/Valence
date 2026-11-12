@@ -5,6 +5,7 @@ interface InspectorProps {
   stats: DocumentStats
   headings: number
   goal?: number
+  textDocument?: boolean
 }
 
 /** Document inspector.
@@ -19,7 +20,7 @@ interface InspectorProps {
  *  in a column the size of a phone.
  */
 
-export function Inspector({ stats, headings, goal = 0 }: InspectorProps) {
+export function Inspector({ stats, headings, goal = 0, textDocument = false }: InspectorProps) {
   return (
     <aside
       aria-label="Document statistics"
@@ -42,7 +43,7 @@ export function Inspector({ stats, headings, goal = 0 }: InspectorProps) {
       {/* Sits directly under the numbers it qualifies. Pinned to the bottom with `mt-auto`
           it read as a stray card floating in dead space. */}
       <p className="mt-4 text-[10.5px] leading-relaxed" style={{ color: 'var(--ink-3)' }}>
-        Prose only — code, links and math are excluded.
+        {textDocument ? 'Literal text, including code and markup.' : 'Prose only — code, URLs and math are excluded.'}
       </p>
     </aside>
   )

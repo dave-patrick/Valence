@@ -29,38 +29,70 @@ async function mount(files:Record<string,string>){
   return platform
 }
 it('normalizes outline docking for old and malformed settings',()=>{
-  expect(normaliseSettings({}).outlineSide).toBe('left')
-  expect(normaliseSettings({outlineSide:'bottom'}).outlineSide).toBe('left')
-  expect(normaliseSettings({outlineSide:'right'}).outlineSide).toBe('right')
+  expect(normaliseSettings({}).sidebarSide).toBe('left')
+  expect(normaliseSettings({outlineSide:'bottom'}).sidebarSide).toBe('left')
+  expect(normaliseSettings({outlineSide:'right'}).sidebarSide).toBe('right')
+  expect(normaliseSettings({sidebarSide:'left',outlineSide:'right'}).sidebarSide).toBe('left')
 })
-it('docks only Outline, persists the choice and preserves the mounted editor',async()=>{
+it('docks every panel, persists the choice and preserves the mounted editor',async()=>{
   const platform=await mount({'/notes/outline.md':'# First\n\n## Last\n\nText.\n'})
   await until(()=>document.querySelector('.ProseMirror h1')?.textContent==='First')
-  const editor=document.querySelector('.ProseMirror'),main=document.querySelector('main')!
-  const aside=()=>document.querySelector('nav[aria-label="Document outline"]')!.closest('aside')!
-  const onRight=()=>!!(main.compareDocumentPosition(aside())&Node.DOCUMENT_POSITION_FOLLOWING)
+  const editor=document.querySelector('.ProseMirror')
+  const onRight=()=>document.querySelector<HTMLElement>('.valence-workspace')?.dataset.sidebarSide==='right'
   expect(onRight()).toBe(false)
-  click(document.querySelector('[aria-label="Move outline to right"]'))
-  await until(()=>document.querySelector('[aria-label="Move outline to left"]'))
+  click(document.querySelector('[aria-label="Move sidebar to right"]'))
+  await until(()=>document.querySelector('[aria-label="Move sidebar to left"]'))
   expect(onRight()).toBe(true)
   expect(document.querySelector('.ProseMirror')).toBe(editor)
-  expect(JSON.parse(await platform.fs.read('valence.settings')).outlineSide).toBe('right')
+  expect(JSON.parse(await platform.fs.read('valence.settings')).sidebarSide).toBe('right')
   for(const panel of ['Files','Search']) {
     click(document.querySelector(`[aria-label="${panel}"]`))
     await until(()=>document.querySelector('aside header h2')?.textContent===panel)
-    expect(!!(main.compareDocumentPosition(document.querySelector('aside')!)&Node.DOCUMENT_POSITION_PRECEDING)).toBe(true)
-    expect(document.querySelector('[aria-label="Move outline to left"]')).toBeNull()
+    expect(onRight()).toBe(true)
+    expect(document.querySelector('[aria-label="Move sidebar to left"]')).not.toBeNull()
   }
   click(document.querySelector('[aria-label="Outline"]'))
-  await until(()=>document.querySelector('[aria-label="Move outline to left"]'))
+  await until(()=>document.querySelector('[aria-label="Move sidebar to left"]'))
   expect(onRight()).toBe(true)
   expect(document.querySelector('.ProseMirror')).toBe(editor)
   root!.unmount();root=undefined;document.body.innerHTML=''
   const host=document.createElement('div');document.body.append(host);root=createRoot(host);root.render(createElement(App))
-  await until(()=>document.querySelector('[aria-label="Move outline to left"]'))
-  const restoredMain=document.querySelector('main')!
-  expect(!!(restoredMain.compareDocumentPosition(aside())&Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true)
-  click(document.querySelector('[aria-label="Move outline to left"]'))
-  await until(()=>document.querySelector('[aria-label="Move outline to right"]'))
-  expect(!!(restoredMain.compareDocumentPosition(aside())&Node.DOCUMENT_POSITION_PRECEDING)).toBe(true)
+  await until(()=>document.querySelector('[aria-label="Move sidebar to left"]'))
+  expect(onRight()).toBe(true)
+  click(document.querySelector('[aria-label="Move sidebar to left"]'))
+  await until(()=>document.querySelector('[aria-label="Move sidebar to right"]'))
+  expect(onRight()).toBe(false)
+},30000)
+
+it('offers checked docking choices from rail and header using pointer or keyboard',async()=>{
+  const platform=await mount({'/notes/menu.md':'# Menu\n'})
+  await until(()=>document.querySelector('.ProseMirror h1')?.textContent==='Menu')
+  const outline=document.querySelector<HTMLButtonElement>('nav[aria-label="Panels"] [aria-label="Outline"]')!
+  outline.focus()
+  outline.dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,cancelable:true,clientX:30,clientY:60}))
+  await until(()=>document.querySelector('[role="menu"]'))
+  const choice=(side:string)=>[...document.querySelectorAll<HTMLButtonElement>('[role="menuitemradio"]')].find(el=>el.textContent?.includes(`Move sidebar ${side}`))!
+  expect(choice('left').getAttribute('aria-checked')).toBe('true')
+  click(choice('right'))
+  await until(()=>!document.querySelector('[role="menu"]')&&document.querySelector('[aria-label="Move sidebar to left"]'))
+  expect(document.activeElement).toBe(outline)
+  expect(JSON.parse(await platform.fs.read('valence.settings')).sidebarSide).toBe('right')
+  const dock=document.querySelector<HTMLButtonElement>('[aria-label="Move sidebar to left"]')!
+  dock.focus()
+  dock.dispatchEvent(new KeyboardEvent('keydown',{key:'F10',shiftKey:true,bubbles:true,cancelable:true}))
+  await until(()=>document.querySelector('[role="menu"]'))
+  expect(choice('right').getAttribute('aria-checked')).toBe('true')
+  choice('right').dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true,cancelable:true}))
+  await until(()=>!document.querySelector('[role="menu"]'))
+  expect(document.activeElement).toBe(dock)
+  dock.dispatchEvent(new KeyboardEvent('keydown',{key:'ContextMenu',bubbles:true,cancelable:true}))
+  await until(()=>document.querySelector('[role="menu"]'))
+  document.body.dispatchEvent(new MouseEvent('mousedown',{bubbles:true}))
+  await until(()=>!document.querySelector('[role="menu"]'))
+  click(document.querySelector('[aria-label="Files"]'))
+  await until(()=>document.querySelector('aside header h2')?.textContent==='Files')
+  document.querySelector('aside header')!.dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,cancelable:true}))
+  await until(()=>document.querySelector('[role="menu"]'))
+  click(choice('left'))
+  await until(()=>document.querySelector('[aria-label="Move sidebar to right"]'))
 },30000)

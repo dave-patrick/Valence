@@ -1,4 +1,6 @@
 import { baseOf } from '@core/look'
+import appIcon from './assets/app-mark.png'
+import { parseFrontMatter } from '@shared/frontMatter'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import { FindReplaceBar } from '@features/find/FindReplaceBar'
@@ -22,7 +24,7 @@ import { parseMarkdown } from '@core/markdown/parse'
 import { serialiseMarkdown, plainText } from '@core/markdown/serialise'
 import { blocksToHtml, htmlToBlocks } from '@core/htmlBridge'
 import { renderToHtml, renderPlainTextToHtml } from '@core/render'
-import { computeStats } from '@features/stats/stats'
+import { computeStats, computeRichStats, type DocumentStats } from '@features/stats/stats'
 import { outlineOf, type OutlineEntry } from '@features/outline/outline'
 import { headingIndex } from '@features/outline/navigation'
 import { isMarkdownDocument, preserveLineEndings } from '@shared/fileTypes'
@@ -82,6 +84,7 @@ function AppMenu({
   onOpenWorkspace,
   onSave,
   onSaveAll,
+  onQuantos,
   onFind,
   onReplace,
   onUndo,
@@ -103,6 +106,7 @@ function AppMenu({
   onOpenWorkspace: () => void
   onSave: () => void
   onSaveAll: () => void
+  onQuantos: () => void
   onFind: () => void
   onReplace: () => void
   onUndo: () => void
@@ -145,6 +149,7 @@ function AppMenu({
     { label: 'Copy as HTML', shortcut: 'Ctrl Shift H', onClick: onCopyHtml },
     { label: 'Copy as Plain Text', shortcut: 'Ctrl Shift P', onClick: onCopyPlain },
     { label: 'Export…', shortcut: 'Ctrl E', onClick: onExport },
+    { label: 'Move to Quantos vault…', onClick: onQuantos },
     { divider: true },
     { label: 'Version history', shortcut: 'Ctrl Alt H', onClick: onHistory },
     { label: 'Settings', shortcut: 'Ctrl ,', onClick: onSettings },
@@ -205,6 +210,9 @@ export function App() {
 
   const [session, setSession] = useState<Session>({ documents: [], activeId: '' })
   const sessionRef = useRef(session)
+  const documentOperation = useRef(false)
+  const movingDocRef = useRef<string | null>(null)
+  const [movingDocId, setMovingDocId] = useState<string | null>(null)
   sessionRef.current = session
   const [view, setView] = useState<ViewMode>('hybrid')
   const [panel, setPanel] = useState<PanelId>('outline')
@@ -269,8 +277,10 @@ useEffect(() => {
     for (const id of sourceHistories.current.keys()) if (!ids.has(id)) sourceHistories.current.delete(id)
   }, [session.documents])
   const applySourceEdit = useCallback((text: string, group: string | null = null) => {
+    setLiveStats(null)
     const current = activeDoc(sessionRef.current)
     if (!current) return
+    if (movingDocRef.current === current.id) return
     const next = preserveLineEndings(text, current.saved)
     const previous = sourceHistories.current.get(current.id)
     const history = previous?.present === current.source ? previous : createTextHistory(current.source)
@@ -388,7 +398,9 @@ useEffect(() => {
   }, [])
 
   useEffect(() => () => clearTimeout(noticeTimer.current), [])
-  const stats = useMemo(() => computeStats(source), [source])
+  const [liveStats, setLiveStats] = useState<{ id: string; stats: DocumentStats } | null>(null)
+  const sourceStats = useMemo(() => computeStats(source, markdownDocument ? 'markdown' : 'text'), [source, markdownDocument])
+  const stats = markdownDocument && effectiveView !== 'source' && liveStats && liveStats.id === doc?.id ? liveStats.stats : sourceStats
 
   const [systemTheme, setSystemTheme] = useState(() => resolveBase('system'))
   useEffect(() => {
@@ -637,12 +649,19 @@ useEffect(() => {
   const loadedFor = useRef<string>('')
   const editorRef = useRef<{ getHTML(): string } | null>(null)
   const conversionTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => () => {
+    if (conversionTimer.current) clearTimeout(conversionTimer.current)
+    conversionTimer.current = null
+    editorRef.current = null
+  }, [])
 
   /** The single conversion point: editor HTML -> block state -> markdown, into the loaded document. */
   const convertEditor = useCallback((e: { getHTML(): string }) => {
     const id = loadedFor.current
     if (!id || !isMarkdownDocument(byId(sessionRef.current, id)?.path ?? null)) return
-    const { text } = serialiseMarkdown(null, htmlToBlocks(e.getHTML()))
+    const current = byId(sessionRef.current, id)
+    const frontmatter = parseFrontMatter(current?.source ?? '')
+    const { text } = serialiseMarkdown(frontmatter.data, htmlToBlocks(e.getHTML()))
     if (byId(sessionRef.current, id)?.source === text) return
     // Update the ref as well, so a save right after a flush writes the new text.
     sessionRef.current = updateDoc(sessionRef.current, id, { source: text })
@@ -719,10 +738,13 @@ useEffect(() => {
       },
     },
     onUpdate: ({ editor: e }) => {
+      if (movingDocRef.current === activeDoc(sessionRef.current)?.id) return
       if (!isMarkdownDocument(activeDoc(sessionRef.current)?.path ?? null)) return
       // Converting the whole document on every keystroke made typing lag in long documents,
       // so it waits for a short pause. Anything that reads the text first (save, close,
       // switching tabs) calls flushEditor().
+      const id = loadedFor.current
+      if (id && id === activeDoc(sessionRef.current)?.id) setLiveStats({ id, stats: computeRichStats(e.state.doc) })
       editorRef.current = e
       if (conversionTimer.current) clearTimeout(conversionTimer.current)
       conversionTimer.current = setTimeout(() => {
@@ -769,6 +791,7 @@ useEffect(() => {
     // Typing in the previous document that hadn't been converted yet belongs to that document.
     flushEditor()
     loadedFor.current = doc.id
+    setLiveStats(null)
     if (!isMarkdownDocument(doc.path)) return
     editor.commands.setContent(blocksToHtml(parseMarkdown(doc.source).blocks), { emitUpdate: false })
 
@@ -955,6 +978,9 @@ useEffect(() => {
    */
   const writeDocument = useCallback(
     async (doc: Session['documents'][number], target: string): Promise<boolean> => {
+      if (documentOperation.current) { notify('Wait for the current save or move to finish.', 'error'); return false }
+      documentOperation.current = true
+      try {
       const name = basenameOf(target)
       if (doc.path && target === doc.path) {
         let disk: string | null = null
@@ -979,6 +1005,7 @@ useEffect(() => {
         notify(`Could not save ${name}: ${e instanceof Error ? e.message : String(e)}`, 'error')
         return false
       }
+      } finally { documentOperation.current = false }
     },
     [platform, notify],
   )
@@ -990,6 +1017,7 @@ useEffect(() => {
    */
   const onDiskChange = useCallback(
     async (id: string, path: string) => {
+      if (movingDocRef.current === id) return
       flushEditor()
       const before = byId(sessionRef.current, id)
       if (!before) return
@@ -1081,6 +1109,7 @@ const resolveUnsaved = useCallback(
 
 const closeTab = useCallback(
     async (id: string) => {
+      if (movingDocRef.current === id) { notify('Wait for the move to finish.', 'error'); return }
       flushEditor()
       const target = byId(sessionRef.current, id)
       if (!target) return
@@ -1101,6 +1130,7 @@ const closeTab = useCallback(
 useEffect(
   () =>
     platform.window.onCloseGuard(async () => {
+      if (documentOperation.current) { notify('Wait for the current save or move to finish.', 'error'); return false }
       flushEditor()
       for (const doc of sessionRef.current.documents) {
         if (!isDirty(doc)) continue
@@ -1243,9 +1273,52 @@ const saveAll = useCallback(async () => {
   }, [])
 
   const newDoc = useCallback(() => {
+    if (sourceComposition.current || editor?.view.composing) { notify('Finish typing before opening a new document.'); return }
+    flushSync(() => flushEditor())
     const created = untitled('')
     setSession((s) => setActiveDoc(openDoc(s, created), created.id))
-  }, [])
+  }, [flushEditor, editor, notify])
+
+  useEffect(() => {
+    editor?.setEditable(movingDocId !== doc?.id, false)
+  }, [editor, movingDocId, doc?.id])
+
+  const moveToQuantos = useCallback(async () => {
+    if (!platform.quantos) { notify('Moving to a Quantos vault is available in the desktop app.', 'error'); return }
+    if (!settings?.quantosVault) {
+      setSettingsOpen(true)
+      setTimeout(() => document.querySelector('#quantos-settings')?.scrollIntoView({ block: 'start' }), 0)
+      return
+    }
+    if (documentOperation.current) { notify('Wait for the current save or move to finish.', 'error'); return }
+    if (sourceComposition.current || editor?.view.composing) { notify('Finish typing before moving the document.'); return }
+    flushSync(() => flushEditor())
+    const current = activeDoc(sessionRef.current)
+    if (!current) return
+    const request = { root: settings.quantosVault, workspace: settings.quantosWorkspace, title: current.title === 'Untitled' ? titleOf(current.source) : current.title, source: current.source, path: current.path, saved: current.saved }
+    documentOperation.current = true
+    movingDocRef.current = current.id
+    flushSync(() => { setMovingDocId(current.id); setFindOpen(false) })
+    try {
+      const result = await platform.quantos.send(request)
+      // The filesystem move has committed. A readback failure cannot undo that result.
+      let content = result.content
+      try { content = await platform.fs.read(result.path) } catch { /* use the committed snapshot */ }
+      if (byId(sessionRef.current, current.id)) {
+        if (loadedFor.current === current.id) loadedFor.current = ''
+        const updated = updateDoc(sessionRef.current, current.id, { path: result.path, title: basenameOf(result.path), source: content, saved: content })
+        sessionRef.current = updated
+        flushSync(() => setSession(updated))
+      }
+      notify(`Moved to ${result.path}${result.recoveryPath ? `. Recovery backup: ${result.recoveryPath}` : ''}`)
+    } catch (error) {
+      notify(`Could not move to Quantos: ${error instanceof Error ? error.message : String(error)}`, 'error')
+    } finally {
+      movingDocRef.current = null
+      setMovingDocId(null)
+      documentOperation.current = false
+    }
+  }, [settings, platform, editor, flushEditor, notify])
 
   /**
    * Focus and typewriter are read by the editor through getters on a ref, so toggling means
@@ -1268,7 +1341,10 @@ const saveAll = useCallback(async () => {
    */
   const runCommand = useCallback(
     (id: string) => {
+      if (movingDocRef.current === activeDoc(sessionRef.current)?.id && ['edit.undo', 'edit.redo', 'edit.find', 'edit.replace'].includes(id)) { notify('Wait for the move to finish.'); return }
       switch (id) {
+        case 'file.quantos':
+          return void moveToQuantos()
         case 'file.open':
           return void openFile()
         case 'file.openWorkspace':
@@ -1376,6 +1452,7 @@ const saveAll = useCallback(async () => {
       save,
       saveAll,
       newDoc,
+      moveToQuantos,
       closeTab,
       session,
       platform,
@@ -1463,13 +1540,13 @@ const saveAll = useCallback(async () => {
   }, [settings, session])
 
   const tabBar = settings?.tabBar ?? 'top'
-  const outlineOnRight = panel === 'outline' && settings?.outlineSide === 'right'
+  const sidebarOnRight = settings?.sidebarSide === 'right'
   const navigationPanel = panel && (
-          <ResizablePane width={sidebarWidth} min={160} max={520} onResize={setSidebarWidth} edge={outlineOnRight ? 'left' : 'right'} label="Resize navigation panel">
+          <ResizablePane className="valence-navigation-pane" width={sidebarWidth} min={160} max={520} onResize={setSidebarWidth} edge={sidebarOnRight ? 'left' : 'right'} label="Resize navigation panel">
             <Sidebar
               kind={panel}
-              outlineSide={settings?.outlineSide ?? 'left'}
-              onOutlineSideChange={(side) => patchSettings({ outlineSide: side })}
+              sidebarSide={settings?.sidebarSide ?? 'left'}
+              onSidebarSideChange={(side) => patchSettings({ sidebarSide: side })}
               headings={headings}
               onNavigate={navigateHeading}
               textDocument={!markdownDocument}
@@ -1536,9 +1613,10 @@ const saveAll = useCallback(async () => {
           aria-expanded={appMenuOpen}
           title="Menu"
         >
-          <span aria-hidden="true" className="grid h-7 w-7 place-items-center rounded-[7px] text-[14px] leading-none" style={{ background: 'var(--accent-wash)', color: 'var(--accent)', fontFamily: 'var(--font-display)', fontWeight: 700 }}>V</span>
+          <img src={appIcon} className="valence-app-icon" alt="" aria-hidden="true" />
         </button>
         </div>
+        <button className="valence-header-action" aria-label="New document" title="New document" onClick={() => void runCommand('file.new')}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg></button>
         {tabBar === 'top' && (
           <div className="flex-1 min-w-0">
             <TabBar
@@ -1550,6 +1628,7 @@ const saveAll = useCallback(async () => {
             />
           </div>
         )}
+        {settings?.quantosVault && settings.quantosShowInHeader && <button className="valence-header-action" aria-label="Move to Quantos vault" title="Move to Quantos vault" disabled={!!movingDocId} onClick={() => void moveToQuantos()}><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M14 3h7v7M21 3 10 14M10 3H4a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1v-6" /></svg></button>}
         {appMenuOpen && (
           <AppMenu
             open={appMenuOpen}
@@ -1560,6 +1639,7 @@ const saveAll = useCallback(async () => {
             onOpenWorkspace={() => void runCommand('file.openWorkspace')}
             onSave={() => void runCommand('file.save')}
             onSaveAll={() => void runCommand('file.saveAll')}
+            onQuantos={() => void runCommand('file.quantos')}
             onFind={() => openFind(false)}
             onReplace={() => openFind(true)}
             onUndo={() => void runCommand('edit.undo')}
@@ -1609,8 +1689,10 @@ const saveAll = useCallback(async () => {
         )}
       </div>
 
-      <div className="valence-workspace flex min-h-0 flex-1 overflow-x-auto overflow-y-hidden">
+      <div className="valence-workspace flex min-h-0 flex-1 overflow-x-auto overflow-y-hidden" data-sidebar-side={settings?.sidebarSide ?? 'left'}>
         <Rail
+          sidebarSide={settings?.sidebarSide ?? 'left'}
+          onSidebarSideChange={(side) => patchSettings({ sidebarSide: side })}
           panel={panel}
           onSelect={setPanel}
           onSettings={() => setSettingsOpen(true)}
@@ -1627,7 +1709,7 @@ const saveAll = useCallback(async () => {
           </ResizablePane>
         )}
 
-        {!outlineOnRight && navigationPanel}
+        {navigationPanel}
 
         <main className="valence-editor-card relative flex min-h-0 flex-1 flex-col" style={{ minWidth: 'min-content' }}>
           <FindReplaceBar open={findOpen} showReplace={replaceOpen} focusSignal={findFocus} seed={findSeed}
@@ -1639,7 +1721,8 @@ const saveAll = useCallback(async () => {
                 <div className="split-pane" ref={splitRef} style={{ gridTemplateColumns: `minmax(0, calc((100% - 6px) * ${splitPercent / 100})) 6px minmax(0, 1fr)` }}>
                   <EditorPane
                     key={doc?.id}
-                    sourceRef={sourceRef}
+                    readOnly={movingDocId === doc?.id}
+                  sourceRef={sourceRef}
                     markdownDocument={markdownDocument}
                     originalSource={doc?.saved ?? source}
                     editor={editor}
@@ -1664,6 +1747,7 @@ const saveAll = useCallback(async () => {
               ) : (
                 <EditorPane
                   key={doc?.id}
+                  readOnly={movingDocId === doc?.id}
                   sourceRef={sourceRef}
                   markdownDocument={markdownDocument}
                   originalSource={doc?.saved ?? source}
@@ -1682,6 +1766,7 @@ const saveAll = useCallback(async () => {
               <ResizablePane width={inspectorWidth} min={140} max={360} onResize={setInspectorWidth} edge="left" label="Resize document statistics" className="valence-inspector-pane">
               <Inspector
                 stats={stats}
+                textDocument={!markdownDocument}
                 headings={headings.length}
                 goal={settings?.dailyWordGoal ?? 0}
               />
@@ -1701,7 +1786,7 @@ const saveAll = useCallback(async () => {
 
           <TableToolbar editor={editor} />
         </main>
-        {outlineOnRight && navigationPanel}
+
         {tabBar === 'right' && session.documents.length > 0 && (
           <ResizablePane width={tabsWidth} min={140} max={420} onResize={setTabsWidth} edge="left" label="Resize document tabs">
 <TabBar
@@ -1867,7 +1952,10 @@ const saveAll = useCallback(async () => {
 const DEFAULT_SAFE: Settings = {
   look: DEFAULT_SETTINGS.look,
   tabBar: 'top',
-  outlineSide: 'left',
+  sidebarSide: 'left',
+  quantosVault: '',
+  quantosWorkspace: 'default',
+  quantosShowInHeader: true,
   theme: 'system',
   themeId: DEFAULT_SETTINGS.themeId,
   accentColor: DEFAULT_SETTINGS.accentColor,
@@ -1889,6 +1977,7 @@ let sourceCompositionSequence = 0
 
 function EditorPane({
   sourceRef: ref,
+  readOnly = false,
   markdownDocument,
   originalSource,
   editor,
@@ -1899,6 +1988,7 @@ function EditorPane({
   onSourceHistory,
   compositionRef,
 }: {
+  readOnly?: boolean
   sourceRef: React.RefObject<HTMLTextAreaElement | null>
   markdownDocument: boolean
   originalSource: string
@@ -1993,6 +2083,7 @@ function EditorPane({
         <textarea
           ref={ref}
           className="editor-surface"
+          readOnly={readOnly}
           data-view="source"
           value={source.replace(/\r\n/g, '\n')}
           wrap="off"

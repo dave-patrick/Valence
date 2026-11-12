@@ -50,7 +50,7 @@ export function StatusBar({
         </span>
       )}
 
-      <span className="tnum" style={{ color: 'var(--ink-3)' }}>
+      <span aria-label="Word count" className="tnum" style={{ color: 'var(--ink-3)' }}>
         {formatCount(stats.words)} words
       </span>
 

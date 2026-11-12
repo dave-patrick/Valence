@@ -81,6 +81,17 @@ async function cleanup(code) {
       k.on('error', () => res())
       setTimeout(res, 4000)
     })
+    // `taskkill /T` can miss Electron utility processes after the browser process exits.
+    // Reap only Valence children carrying this probe's unique scratch profile; never touch
+    // the user's ordinary Valence process or another concurrent probe.
+    const profile = PROFILE.replace(/'/g, "''")
+    const reap = `$probeProfile = '${profile}'; Get-CimInstance Win32_Process -Filter "Name = 'Valence.exe'" | Where-Object { $_.CommandLine -like "*$probeProfile*" } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }`
+    await new Promise((res) => {
+      const k = spawn('powershell', ['-NoProfile', '-NonInteractive', '-Command', reap], { stdio: 'ignore', windowsHide: true })
+      k.on('exit', () => res())
+      k.on('error', () => res())
+      setTimeout(res, 5000)
+    })
   } else {
     try {
       process.kill(-child.pid, 'SIGKILL')

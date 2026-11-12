@@ -8,6 +8,10 @@
 import { contextBridge, ipcRenderer } from 'electron'
 
 const api = {
+  quantos: {
+    inspect: (root: string) => ipcRenderer.invoke('quantos:inspect', root),
+    send: (request: unknown) => ipcRenderer.invoke('quantos:send', request),
+  },
   app: {
     /** The running app's version, from package.json. Never hardcoded in the renderer. */
     version: () => ipcRenderer.invoke('app:version'),

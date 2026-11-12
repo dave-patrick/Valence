@@ -17,8 +17,11 @@ export interface Settings {
    *  at a time and no evidence of the machinery. */
   look: Look
   tabBar: TabBarPosition
-  /** Dock only the document outline; Files and Search remain on the left. */
-  outlineSide: 'left' | 'right'
+  /** Dock the icon rail and every navigation panel together. */
+  sidebarSide: 'left' | 'right'
+  quantosVault: string
+  quantosWorkspace: string
+  quantosShowInHeader: boolean
   /** Base mode: system / light / dark. 'system' follows the OS preference. */
   theme: ThemePreference
   /** Theme id (from src/core/theme.ts THEMES). 'house' is the house colour scheme. */
@@ -59,7 +62,10 @@ export interface Settings {
 export const DEFAULT_SETTINGS: Settings = {
   look: { ...DEFAULT_LOOK },
   tabBar: 'top',
-  outlineSide: 'left',
+  sidebarSide: 'left',
+  quantosVault: '',
+  quantosWorkspace: 'default',
+  quantosShowInHeader: true,
   theme: 'system',
   themeId: 'house',
   accentColor: '#78b6ff',
@@ -95,7 +101,10 @@ export function normaliseSettings(input: unknown): Settings {
   return {
     look: normaliseLook(raw['look']),
     tabBar: oneOf(raw['tabBar'], ['top', 'bottom', 'left', 'right', 'hidden'], DEFAULT_SETTINGS.tabBar),
-    outlineSide: oneOf(raw['outlineSide'], ['left', 'right'], DEFAULT_SETTINGS.outlineSide),
+    sidebarSide: oneOf(raw['sidebarSide'] ?? raw['outlineSide'], ['left', 'right'], DEFAULT_SETTINGS.sidebarSide),
+    quantosVault: str(raw['quantosVault']),
+    quantosWorkspace: /^[a-z0-9][a-z0-9_-]{0,63}$/.test(str(raw['quantosWorkspace'])) ? str(raw['quantosWorkspace']) : 'default',
+    quantosShowInHeader: bool(raw['quantosShowInHeader'], DEFAULT_SETTINGS.quantosShowInHeader),
     theme: oneOf(raw['theme'], ['system', 'light', 'dark'], DEFAULT_SETTINGS.theme),
     themeId: str(raw['themeId']) || DEFAULT_SETTINGS.themeId,
     accentColor: normaliseHex(str(raw['accentColor'])),

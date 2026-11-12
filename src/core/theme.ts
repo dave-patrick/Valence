@@ -438,5 +438,8 @@ export function resolveAppearance(themeId: string, mode: 'dark' | 'light', accen
  '--sidebar-bg':vars['--sidebar-bg'] ?? vars['--bg-panel'], '--header-bg':vars['--header-bg'] ?? vars['--bg-raised'],
  '--statusbar-bg':vars['--statusbar-bg'] ?? vars['--bg-raised'], '--editor-bg':vars['--editor-bg'] ?? vars['--bg-panel'],
  '--font-editor':vars['--font-editor'] ?? vars['--font-body'] ?? "'Source Sans 3', sans-serif",
+ '--editor-border':vars['--editor-border'] ?? vars['--line'],
+ '--focus-ring':'0 0 0 2px var(--bg), 0 0 0 4px var(--line-focus)',
+ '--card-gap':look.cardSpacing+'px',
  '--ui-scale':String(look.scale),'--workspace-gap':look.spacing+'px','--editor-size':look.editorSize+'px','--editor-width':look.editorWidth+'ch'};
 }

@@ -1,4 +1,5 @@
 import { AppearancePanel } from './AppearancePanel'
+import { QuantosSettings } from './QuantosSettings'
 import { useEffect, useRef, useState } from 'react'
 import { buildId } from '../../package.json'
 import type { DocumentState, Session } from '@core/session'
@@ -272,6 +273,7 @@ function SettingsFields({
 }) {
   return (
     <div className="valence-settings__body">
+      <QuantosSettings settings={settings} onChange={onChange} />
       <section>
         <h3>Appearance</h3>
         <Field label="Tab bar" hint="Where open documents are listed">

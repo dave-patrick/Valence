@@ -41,7 +41,7 @@ try {
  await click('Close settings');await capture('light-workspace')
  await click('Settings');await select('Appearance preset','forest')
  await until(()=>fn(()=>document.documentElement.style.getPropertyValue('--bg')==='#0f1a14'))
- await fn(()=>{const e=document.querySelector('[aria-label="Workspace spacing"]');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(e,'16');e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}))})
+ await fn(()=>{const e=document.querySelector('[aria-label="Window padding"]');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(e,'16');e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}))})
  await until(()=>fn(()=>document.documentElement.style.getPropertyValue('--workspace-gap')==='16px'))
  await select('Interface font','Georgia')
  check(await fn(()=>document.documentElement.style.getPropertyValue('--font-body').includes('Georgia')),'font override applies')

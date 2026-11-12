@@ -16,7 +16,7 @@ export function AppearancePanel({ settings, onChange }: { settings: Settings; on
       <button type="button" title={`Reset ${label}`} aria-label={`Reset ${label}`} disabled={look[key] == null} onClick={() => set({ [key]: null })}>Auto</button>
     </div>
   )
-  const range = (key: 'scale' | 'spacing' | 'editorSize' | 'editorWidth', label: string, min: number, max: number, step: number, unit: string) => (
+  const range = (key: 'scale' | 'spacing' | 'cardSpacing' | 'editorSize' | 'editorWidth', label: string, min: number, max: number, step: number, unit: string) => (
     <label className="appearance-range" key={key}>
       <span>{label}</span><output>{key === 'scale' ? Math.round(look[key] * 100) : look[key]}{unit}</output>
       <input type="range" aria-label={label} min={min} max={max} step={step} value={look[key]} onChange={e => set({ [key]: Number(e.target.value) })} />
@@ -41,7 +41,8 @@ export function AppearancePanel({ settings, onChange }: { settings: Settings; on
     <details className="appearance-details" open><summary>Text & spacing</summary>
       {([['fontUi','Interface font'],['fontHeading','Heading font'],['fontEditor','Editor font'],['fontMono','Code font']] as const).map(([key,label]) => <label className="appearance-select" key={key}><span>{label}</span><select aria-label={label} value={look[key] ?? ''} onChange={e => set({ [key]: e.target.value || null })}><option value="">Default</option>{look[key] && !FONTS.some(f => f.name === look[key]) && <option value={look[key]!}>{look[key]}</option>}{FONTS.map(f => <option key={f.name}>{f.name}</option>)}</select></label>)}
       {range('scale','Interface size',.9,1.25,.05,'%')}
-      {range('spacing','Workspace spacing',4,16,1,'px')}
+      {range('spacing','Window padding',4,16,1,'px')}
+      {range('cardSpacing','Card spacing',0,24,1,'px')}
       {range('editorSize','Editor text size',14,24,1,'px')}
       {range('editorWidth','Reading width',55,90,1,'ch')}
     </details>

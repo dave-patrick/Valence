@@ -15,6 +15,7 @@ export interface Look {
   fontEditor: string | null;  // null: the Writing typeface setting
   fontMono: string | null;
   spacing: number;
+  cardSpacing: number;
   editorSize: number;
   editorWidth: number;
   scale: number;              // interface text size, 0.9–1.25
@@ -24,6 +25,7 @@ export interface Look {
   headerBg?: string | null;
   statusbarBg?: string | null;
   editorBg?: string | null;
+  editorBorder?: string | null;
   panelBg?: string | null;
   raisedBg?: string | null;
   inputBg?: string | null;
@@ -53,6 +55,7 @@ export const DEFAULT_LOOK: Look = {
   fontEditor: null,
   fontMono: null,
   spacing: 10,
+  cardSpacing: 10,
   editorSize: 19,
   editorWidth: 72,
   scale: 1,
@@ -60,6 +63,7 @@ export const DEFAULT_LOOK: Look = {
   headerBg: null,
   statusbarBg: null,
   editorBg: null,
+  editorBorder: null,
   panelBg: null,
   raisedBg: null,
   inputBg: null,
@@ -182,6 +186,7 @@ export const THEME_ELEMENTS: ElementDef[] = [
   { key: 'accentInk', cssVar: '--accent-ink', label: 'Accent text / ink', category: 'interactive', description: 'Text colour inside filled accent buttons' },
 
   // Borders & Dividers
+  { key: 'editorBorder', cssVar: '--editor-border', label: 'Editor card border', category: 'borders', description: 'Border around the main writing card' },
   { key: 'line', cssVar: '--line', label: 'Subtle borders', category: 'borders', description: 'Standard borders and divider lines' },
   { key: 'lineStrong', cssVar: '--line-strong', label: 'Strong borders', category: 'borders', description: 'Focused pane borders and dialog boundaries' },
 
@@ -248,7 +253,7 @@ export function readable(color: string, bg: string, min: number): string {
 
 /** CSS variables for a look, including calculated palette and any explicit element overrides. */
 export function lookVars(look: Look, base: 'dark' | 'light', fallback: Record<string, string> = base === 'light' ? BUILTIN_LIGHT : BUILTIN_DARK): Record<string, string> {
-  const v: Record<string, string> = {};
+  const v: Record<string, string> = { '--card-gap': look.cardSpacing + 'px' };
   const bg = look.bg && parseHex(look.bg) ? toHex(parseHex(look.bg)!) : null;
   const surface = bg ?? fallback['--bg'];
   const selectedText = look.text && parseHex(look.text) ? toHex(parseHex(look.text)!) : null;
@@ -298,6 +303,7 @@ export function lookVars(look: Look, base: 'dark' | 'light', fallback: Record<st
   setOverride('--header-bg', look.headerBg);
   setOverride('--statusbar-bg', look.statusbarBg);
   setOverride('--editor-bg', look.editorBg);
+  setOverride('--editor-border', look.editorBorder);
   setOverride('--bg-panel', look.panelBg);
   setOverride('--bg-raised', look.raisedBg);
   setOverride('--bg-input', look.inputBg);
@@ -340,6 +346,7 @@ export function lookVars(look: Look, base: 'dark' | 'light', fallback: Record<st
 /** Resolves the effective color value for an element, whether custom or automatic. */
 export function effectiveColor(cssVar: string, look: Look, base: 'dark' | 'light', accentFallback = '#78b6ff'): string {
   const vars = lookVars(look, base);
+  if (cssVar === '--editor-border') return vars[cssVar] ?? vars['--line'] ?? (base === 'light' ? BUILTIN_LIGHT : BUILTIN_DARK)['--line'];
   if (vars[cssVar]) return vars[cssVar];
   if (cssVar === '--accent' || cssVar === '--line-focus') return vars['--accent'] ?? accentFallback;
   const builtIn = base === 'light' ? BUILTIN_LIGHT : BUILTIN_DARK;
@@ -359,12 +366,14 @@ export function resetElements(look: Look): Look {
     fontMono: look.fontMono,
     scale: look.scale,
     spacing: look.spacing,
+    cardSpacing: look.cardSpacing,
     editorSize: look.editorSize,
     editorWidth: look.editorWidth,
     sidebarBg: null,
     headerBg: null,
     statusbarBg: null,
     editorBg: null,
+    editorBorder: null,
     panelBg: null,
     raisedBg: null,
     inputBg: null,
@@ -401,9 +410,9 @@ export function normaliseLook(input: unknown): Look {
  if (!input || typeof input !== 'object' || Array.isArray(input)) return out;
  const raw = input as Record<string,unknown>;
  for (const key of Object.keys(DEFAULT_LOOK) as (keyof Look)[]) {
-  const value = raw[key];
-  if (key === 'scale' || key === 'spacing' || key === 'editorSize' || key === 'editorWidth') {
-   const bounds = key === 'scale' ? [.9,1.25] : key === 'spacing' ? [4,16] : key === 'editorSize' ? [14,24] : [55,90];
+  const value = key === 'cardSpacing' && !Object.hasOwn(raw, 'cardSpacing') ? raw.spacing : raw[key];
+  if (key === 'scale' || key === 'spacing' || key === 'cardSpacing' || key === 'editorSize' || key === 'editorWidth') {
+   const bounds = key === 'scale' ? [.9,1.25] : key === 'spacing' ? [4,16] : key === 'cardSpacing' ? [0,24] : key === 'editorSize' ? [14,24] : [55,90];
    if (typeof value === 'number' && Number.isFinite(value)) out[key] = Math.min(bounds[1],Math.max(bounds[0],value));
   } else if (key.startsWith('font')) {
    if (typeof value === 'string' && /^[a-zA-Z0-9 ._-]{1,80}$/.test(value)) Object.assign(out,{[key]:value});

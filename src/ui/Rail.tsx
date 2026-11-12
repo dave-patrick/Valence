@@ -1,6 +1,9 @@
 import type { PanelId } from '@/App'
+import { useSidebarDockMenu } from './SidebarDockMenu'
 
 interface RailProps {
+  sidebarSide?: 'left' | 'right'
+  onSidebarSideChange?: (side: 'left' | 'right') => void
   panel: PanelId
   onSelect: (p: PanelId) => void
   onSettings: () => void
@@ -30,9 +33,12 @@ const ITEMS: { id: Exclude<PanelId, null>; label: string; glyph: string }[] = [
   { id: 'search', label: 'Search', glyph: 'M10.5 17a6.5 6.5 0 1 0 0-13 6.5 6.5 0 0 0 0 13ZM15.5 15.5 21 21' },
 ]
 
-export function Rail({ panel, onSelect, onSettings }: RailProps) {
+export function Rail({ panel, onSelect, onSettings, sidebarSide = 'left', onSidebarSideChange }: RailProps) {
+  const dockMenu = useSidebarDockMenu(sidebarSide, onSidebarSideChange)
   return (
     <nav
+      {...dockMenu.handlers}
+      tabIndex={-1}
       aria-label="Panels"
       className="valence-rail flex shrink-0 flex-col items-center gap-1 py-2"
       style={{ width: 'var(--rail)', background: 'var(--sidebar-bg)' }}
@@ -72,6 +78,7 @@ export function Rail({ panel, onSelect, onSettings }: RailProps) {
           <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
         </svg>
       </button>
+      {dockMenu.content}
     </nav>
   )
 }

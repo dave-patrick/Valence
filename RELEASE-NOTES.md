@@ -1,10 +1,14 @@
 # Valence 0.2.4
 
-Build: **2026.11.11.17**
+Build: **2026.11.11.18**
 
 ## Changes
 
 - Mirrored the Quantos inset card workspace and added full appearance controls for colors, fonts, text size, spacing and reading width, with theme import/export and reset.
+
+- Added card spacing and editor border color controls, compacted the header and status bar, and updated the app icon.
+- Added a new document button, configurable Quantos vault moves, and left/right docking for every sidebar panel.
+- Fixed live word counts while typing and improved Markdown prose counting.
 
 - Fixed scrolling in long outlines and added a remembered left/right dock option in the Outline header.
 
@@ -24,7 +28,7 @@ Build: **2026.11.11.17**
 
 ## Downloads
 
-Every artifact filename includes release **0.2.4** and build **2026.11.11.17**.
+Every artifact filename includes release **0.2.4** and build **2026.11.11.18**.
 
 - Windows x64: extract the ZIP into its own folder, then run Valence.exe. Close the previous copy before replacing it.
 - Linux: mark the AppImage executable, then run it.
